@@ -14,6 +14,8 @@ import {
   Users,
   Trophy,
   ShieldCheck,
+  BookOpen,
+  Briefcase,
 } from 'lucide-react'
 
 type Profile = Database['public']['Tables']['profiles']['Row'] & {
@@ -32,6 +34,8 @@ export default function Sidebar({ profile }: { profile: Profile }) {
     { href: '/membre/formations', label: 'Formations', icon: GraduationCap },
     { href: '/membre/projets', label: 'Projets', icon: Cog },
     { href: '/membre/annonces', label: 'Annonces', icon: Megaphone },
+    { href: '/membre/ressources', label: 'Ressources', icon: BookOpen },
+    { href: '/membre/opportunites', label: 'Opportunités', icon: Briefcase },
     { href: '/membre/calendrier', label: 'Calendrier', icon: CalendarRange },
     { href: '/membre/annuaire', label: 'Annuaire', icon: Users },
     { href: '/membre/classement', label: 'Classement', icon: Trophy },

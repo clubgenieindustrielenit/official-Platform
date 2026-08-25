@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { Mail, Users, FileText, MessageSquare, Settings, LogOut, Image, Sparkles, FolderGit2, X, Globe } from "lucide-react";
+import { Mail, Users, FileText, MessageSquare, Settings, LogOut, Image, Sparkles, FolderGit2, X, Globe, BarChart3, Factory, BookOpen, Briefcase, Trophy, GraduationCap } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSiteSettings } from "@/components/providers/SiteSettingsProvider";
 
@@ -15,8 +15,13 @@ export interface NavItem {
 
 export const ADMIN_NAV_ITEMS: NavItem[] = [
   { id: "invitations", label: "Invitations", icon: Mail },
-  { id: "membres", label: "Membres", icon: Users },
+  { id: "membres", label: "Membres & Statuts", icon: Users },
+  { id: "stats", label: "Stats & Classement", icon: BarChart3 },
+  { id: "visites", label: "Visites d'Entreprise", icon: Factory },
+  { id: "ressources", label: "Ressources Club", icon: BookOpen },
   { id: "projets", label: "Gestion des Projets", icon: FolderGit2 },
+  { id: "formations", label: "Gestion des Formations", icon: GraduationCap },
+  { id: "opportunites", label: "Opportunités & Stages", icon: Briefcase },
   { id: "activities", label: "Activités du Club", icon: Sparkles },
   { id: "hero", label: "Hero Carousel", icon: Image },
   { id: "contenu", label: "Contenu", icon: FileText },

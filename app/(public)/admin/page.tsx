@@ -48,6 +48,11 @@ import PostCreatorModal from "@/components/admin/PostCreatorModal";
 import TestimonialsTab from "@/components/admin/TestimonialsTab";
 import ContenuTab from "@/components/admin/ContenuTab";
 import MemberManagementHub from "@/components/bureau-admin/MemberManagementHub";
+import LeaderboardStats from "@/components/admin/LeaderboardStats";
+import VisitesManager from "@/components/admin/VisitesManager";
+import ResourcesManager from "@/components/admin/ResourcesManager";
+import FormationsManager from "@/components/admin/FormationsManager";
+import OpportunitiesManager from "@/components/admin/OpportunitiesManager";
 
 import Toast, { ToastMessage } from "@/components/ui/Toast";
 import ConfirmModal from "@/components/ui/ConfirmModal";
@@ -795,16 +800,26 @@ export default function AdminDashboardPage() {
             {activeTab === "membres" && <Users className="w-5 h-5 text-[#fca311]" />}
             {activeTab === "activities" && <Sparkles className="w-5 h-5 text-[#fca311]" />}
             {activeTab === "hero" && <ImageIcon className="w-5 h-5 text-[#fca311]" />}
-            {["contenu", "temoignages", "parametres"].includes(activeTab) && (
+            {["contenu", "temoignages", "parametres", "stats", "visites", "ressources", "formations", "opportunites"].includes(activeTab) && (
               <Wrench className="w-5 h-5 text-[#fca311]" />
             )}
             <h2 className="text-xl font-extrabold text-white tracking-tight font-mono uppercase">
               {activeTab === "invitations"
                 ? "Invitations"
                 : activeTab === "membres"
-                ? "Club Members"
+                ? "Membres & Statuts"
+                : activeTab === "stats"
+                ? "Stats & Classement"
+                : activeTab === "visites"
+                ? "Visites d'Entreprise"
+                : activeTab === "ressources"
+                ? "Ressources Club"
                 : activeTab === "projets"
                 ? "Gestion des Projets"
+                : activeTab === "formations"
+                ? "Gestion des Formations"
+                : activeTab === "opportunites"
+                ? "Opportunités & Stages"
                 : activeTab === "activities"
                 ? "Activités du Club"
                 : activeTab === "hero"
@@ -1669,6 +1684,21 @@ export default function AdminDashboardPage() {
           {/* TAB: CONTENU */}
           {activeTab === "contenu" && <ContenuTab addToast={addToast} />}
 
+          {/* TAB: STATS */}
+          {activeTab === "stats" && <LeaderboardStats onShowToast={addToast} />}
+
+          {/* TAB: VISITES */}
+          {activeTab === "visites" && <VisitesManager onShowToast={addToast} />}
+
+          {/* TAB: RESSOURCES */}
+          {activeTab === "ressources" && <ResourcesManager onShowToast={addToast} />}
+
+          {/* TAB: FORMATIONS */}
+          {activeTab === "formations" && <FormationsManager onShowToast={addToast} />}
+
+          {/* TAB: OPPORTUNITÉS */}
+          {activeTab === "opportunites" && <OpportunitiesManager onShowToast={addToast} />}
+
           {/* FALLBACK FOR UNIMPLEMENTED TABS */}
           {activeTab !== "invitations" &&
             activeTab !== "membres" &&
@@ -1677,7 +1707,12 @@ export default function AdminDashboardPage() {
             activeTab !== "hero" &&
             activeTab !== "parametres" &&
             activeTab !== "temoignages" &&
-            activeTab !== "contenu" && (
+            activeTab !== "contenu" &&
+            activeTab !== "stats" &&
+            activeTab !== "visites" &&
+            activeTab !== "ressources" &&
+            activeTab !== "formations" &&
+            activeTab !== "opportunites" && (
               <div className="py-12 flex items-center justify-center">
                 <div className="bg-[#14213d] border border-[#333535] rounded-2xl p-10 text-center max-w-lg w-full shadow-2xl space-y-6 font-mono">
                   <div className="w-16 h-16 rounded-full bg-[#1e2020] border border-[#333535] text-[#fca311] mx-auto flex items-center justify-center shadow">
