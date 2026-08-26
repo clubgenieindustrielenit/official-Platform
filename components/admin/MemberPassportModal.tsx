@@ -166,11 +166,22 @@ export default function MemberPassportModal({
                           Classe : {data.profile.classe}
                         </span>
                       )}
-                      {data.profile.poles?.name && (
-                        <span className="bg-custom-amber/20 text-custom-amber px-2 py-0.5 rounded">
-                          Pôle : {data.profile.poles.name}
-                        </span>
-                      )}
+                      {((data.profile.assigned_poles && data.profile.assigned_poles.length > 0)
+                        ? data.profile.assigned_poles
+                        : data.profile.poles
+                        ? [data.profile.poles]
+                        : []
+                      ).map((p: any, pIdx: number) => {
+                        const name = p.name?.replace(/^Pôle\s+/i, "") || "Pôle";
+                        return (
+                          <span
+                            key={p.id || pIdx}
+                            className="bg-custom-amber/20 text-custom-amber border border-custom-amber/30 px-2 py-0.5 rounded font-mono font-bold text-[11px]"
+                          >
+                            Pôle : {name}
+                          </span>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>

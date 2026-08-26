@@ -45,6 +45,7 @@ type Project = {
   status: "planned" | "in_progress" | "done";
   progress: number;
   deadline: string | null;
+  google_form_url?: string | null;
   pole_id: string | null;
   lead_id: string | null;
   poles: Pole | null;
@@ -72,6 +73,7 @@ export default function ProjectManager() {
   const [poleId, setPoleId] = useState("");
   const [leadId, setLeadId] = useState("");
   const [deadline, setDeadline] = useState("");
+  const [googleFormUrl, setGoogleFormUrl] = useState("");
   const [status, setStatus] = useState<"planned" | "in_progress" | "done">("planned");
   const [progress, setProgress] = useState<number>(0);
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
@@ -108,6 +110,7 @@ export default function ProjectManager() {
       setPoleId(project.pole_id || "");
       setLeadId(project.lead_id || "");
       setDeadline(project.deadline ? project.deadline.split("T")[0] : "");
+      setGoogleFormUrl(project.google_form_url || "");
       setStatus(project.status || "planned");
       setProgress(project.progress || 0);
       setSelectedMemberIds(project.project_members?.map((pm) => pm.user_id) || []);
@@ -118,6 +121,7 @@ export default function ProjectManager() {
       setPoleId("");
       setLeadId("");
       setDeadline("");
+      setGoogleFormUrl("");
       setStatus("planned");
       setProgress(0);
       setSelectedMemberIds([]);
@@ -147,6 +151,7 @@ export default function ProjectManager() {
         pole_id: poleId || null,
         lead_id: leadId || null,
         deadline: deadline ? new Date(deadline).toISOString() : null,
+        google_form_url: googleFormUrl.trim() || null,
         status,
         progress: status === "done" ? 100 : progress,
         member_ids: selectedMemberIds,
@@ -545,6 +550,23 @@ export default function ProjectManager() {
                       <option value="done">Terminé / Livré</option>
                     </select>
                   </div>
+                </div>
+
+                {/* Google Form Registration URL */}
+                <div>
+                  <label className="block text-xs font-mono uppercase text-custom-amber mb-1 flex items-center gap-1.5 font-bold">
+                    <span>Lien Formulaire d&apos;inscription / Candidature (Google Form)</span>
+                  </label>
+                  <input
+                    type="url"
+                    value={googleFormUrl}
+                    onChange={(e) => setGoogleFormUrl(e.target.value)}
+                    placeholder="https://docs.google.com/forms/d/..."
+                    className="w-full px-4 py-2.5 bg-[#1e2020] border border-custom-amber/40 rounded-xl text-sm text-white focus:outline-none focus:border-custom-amber placeholder-[#666]"
+                  />
+                  <p className="text-[10px] text-[#888] mt-1">
+                    Permet aux membres du club de candidater ou rejoindre l&apos;équipe projet via un formulaire officiel.
+                  </p>
                 </div>
 
                 {/* Member Selection Checklist */}

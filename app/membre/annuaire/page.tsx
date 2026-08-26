@@ -8,6 +8,7 @@ type Profile = {
   last_name: string | null
   role: Role
   pole_id: string | null
+  pole_ids?: string[] | null
   points_total: number
   year: string | null
   avatar_url: string | null
@@ -16,22 +17,52 @@ type Profile = {
 
 export default async function AnnuairePage() {
   const supabase = await createClient()
-  const { data: profiles } = await supabase
-    .from('profiles')
-    .select('*, poles(name)')
-    .order('first_name', { ascending: true })
+  const [{ data: profiles }, { data: allPoles }] = await Promise.all([
+    supabase
+      .from('profiles')
+      .select('*, poles(name)')
+      .order('first_name', { ascending: true }),
+    supabase
+      .from('poles')
+      .select('id, name')
+      .order('name', { ascending: true })
+  ])
 
   const typedProfiles = (profiles ?? []) as Profile[]
   const bureau = typedProfiles.filter((p) => isBureauOrAdmin(p.role))
   const members = typedProfiles.filter((p) => !isBureauOrAdmin(p.role))
 
-  // Group members by pole name
-  const membersByPole = members.reduce<Record<string, Profile[]>>((acc, m) => {
-    const poleName = m.poles?.name ?? 'Membres Généraux'
-    if (!acc[poleName]) acc[poleName] = []
-    acc[poleName].push(m)
-    return acc
-  }, {})
+  const polesMap = new Map((allPoles || []).map((p: any) => [p.id, p.name]))
+
+  // Group members by official poles
+  const membersByPole: Record<string, Profile[]> = {}
+  ;(allPoles || []).forEach((p: any) => {
+    membersByPole[p.name] = []
+  })
+  membersByPole['Membres Généraux'] = []
+
+  members.forEach((m) => {
+    const memberPoleIds: string[] = (m.pole_ids && m.pole_ids.length > 0)
+      ? m.pole_ids
+      : (m.pole_id ? [m.pole_id] : [])
+
+    if (memberPoleIds.length === 0) {
+      membersByPole['Membres Généraux'].push(m)
+    } else {
+      memberPoleIds.forEach((pid) => {
+        const pName = polesMap.get(pid)
+        if (pName) {
+          if (!membersByPole[pName]) membersByPole[pName] = []
+          membersByPole[pName].push(m)
+        }
+      })
+    }
+  })
+
+  // Filter out empty general members group if 0
+  const activePoleGroups = Object.entries(membersByPole).filter(
+    ([name, list]) => list.length > 0 || name !== 'Membres Généraux'
+  )
 
   return (
     <div className="space-y-10">
@@ -85,7 +116,7 @@ export default async function AnnuairePage() {
                 </span>
                 {member.poles && (
                   <p className="text-[11px] text-[#888] font-mono mt-1">
-                    Pôle {member.poles.name}
+                    Pôle {member.poles.name.replace(/^Pôle\s+/i, '')}
                   </p>
                 )}
               </div>
@@ -95,11 +126,13 @@ export default async function AnnuairePage() {
       </section>
 
       {/* Membres par pôle */}
-      {Object.entries(membersByPole).map(([poleName, poleMembers]) => (
+      {activePoleGroups.map(([poleName, poleMembers]) => (
         <section key={poleName} className="space-y-4">
           <div className="flex items-center gap-2 border-b border-[#2a2c2c] pb-3">
             <Award className="w-4 h-4 text-emerald-400" />
-            <h2 className="font-display text-lg font-bold text-white">{poleName}</h2>
+            <h2 className="font-display text-lg font-bold text-white">
+              {poleName === 'Membres Généraux' ? poleName : `Pôle ${poleName.replace(/^Pôle\s+/i, '')}`}
+            </h2>
             <span className="text-xs text-[#888] font-mono">({poleMembers.length})</span>
           </div>
 

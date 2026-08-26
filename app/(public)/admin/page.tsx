@@ -55,6 +55,8 @@ import {
   FolderGit2,
   BookOpen,
   Trophy,
+  Megaphone,
+  Pin,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { compressImage } from "@/lib/utils/imageCompressor";
@@ -66,6 +68,9 @@ import OpportunitiesManager from "@/components/admin/OpportunitiesManager";
 import MemberPassportModal from "@/components/admin/MemberPassportModal";
 import ResourcesManager from "@/components/admin/ResourcesManager";
 import LeaderboardStats from "@/components/admin/LeaderboardStats";
+import AnnouncementFormModal from "@/components/admin/AnnouncementFormModal";
+import CalendarManager from "@/components/admin/CalendarManager";
+import MemberPoleMultiSelect from "@/components/admin/MemberPoleMultiSelect";
 
 import Toast, { ToastMessage } from "@/components/ui/Toast";
 import ConfirmModal from "@/components/ui/ConfirmModal";
@@ -95,6 +100,7 @@ export interface MemberRecord {
   statut_membre_verified?: boolean;
   points_total?: number;
   pole_id?: string | null;
+  pole_ids?: string[] | null;
   year?: string | null;
   avatar_url?: string | null;
   linkedin_url?: string | null;
@@ -156,6 +162,14 @@ export default function AdminDashboardPage() {
   // Activity Form Modal States
   const [isActivityModalOpen, setIsActivityModalOpen] = useState(false);
   const [editingActivity, setEditingActivity] = useState<ActivityRecord | null>(null);
+
+  // Announcements state
+  const [announcements, setAnnouncements] = useState<any[]>([]);
+  const [loadingAnnouncements, setLoadingAnnouncements] = useState(false);
+  const [announcementSearch, setAnnouncementSearch] = useState("");
+  const [isAnnouncementModalOpen, setIsAnnouncementModalOpen] = useState(false);
+  const [editingAnnouncement, setEditingAnnouncement] = useState<any | null>(null);
+  const [poles, setPoles] = useState<{ id: string; name: string }[]>([]);
 
   // Hero carousel upload & preview states
   const [uploadingHero, setUploadingHero] = useState(false);
@@ -341,8 +355,12 @@ export default function AdminDashboardPage() {
         );
       }
 
-      const { data: polesData } = await supabase.from("poles").select("id, name");
+      const { data: polesData } = await supabase
+        .from("poles")
+        .select("id, name, color, icon")
+        .order("name");
       if (polesData) {
+        setPoles(polesData);
         const map: Record<string, string> = {};
         polesData.forEach((p: any) => {
           map[p.id] = p.name;
@@ -387,6 +405,29 @@ export default function AdminDashboardPage() {
       setLoadingActivities(false);
     }
   }, []);
+
+  const fetchAnnouncements = useCallback(async () => {
+    setLoadingAnnouncements(true);
+    try {
+      const { data, error } = await supabase
+        .from("announcements")
+        .select("*, poles(name)")
+        .order("pinned", { ascending: false })
+        .order("created_at", { ascending: false });
+      if (!error && data) setAnnouncements(data);
+
+      const { data: polesData } = await supabase.from("poles").select("id, name").order("name");
+      if (polesData) setPoles(polesData);
+    } catch (err: any) {
+      addToast("error", "Erreur lors du chargement des annonces.");
+    } finally {
+      setLoadingAnnouncements(false);
+    }
+  }, [supabase]);
+
+  useEffect(() => {
+    if (activeTab === "annonces") fetchAnnouncements();
+  }, [activeTab, fetchAnnouncements]);
 
   useEffect(() => {
     if (currentUser) {
@@ -614,6 +655,51 @@ export default function AdminDashboardPage() {
     } catch (err: any) {
       addToast("error", err.message || "Erreur lors du changement de rôle.");
     }
+  };
+
+  const handleChangeMemberPoles = async (
+    member: MemberRecord,
+    newPoleIds: string[]
+  ) => {
+    try {
+      const primaryPoleId = newPoleIds.length > 0 ? newPoleIds[0] : null;
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          pole_ids: newPoleIds,
+          pole_id: primaryPoleId,
+        })
+        .eq("id", member.id);
+
+      if (error) throw error;
+
+      addToast("success", `Pôles de ${member.first_name || member.email} mis à jour avec succès !`);
+      
+      // Update local members state immediately
+      setMembers((prev) =>
+        prev.map((m) =>
+          m.id === member.id
+            ? { ...m, pole_ids: newPoleIds, pole_id: primaryPoleId }
+            : m
+        )
+      );
+
+      if (selectedMemberForDetails?.id === member.id) {
+        setSelectedMemberForDetails((prev) =>
+          prev ? { ...prev, pole_ids: newPoleIds, pole_id: primaryPoleId } : null
+        );
+      }
+    } catch (err: any) {
+      addToast("error", err.message || "Erreur lors de l'assignation des pôles.");
+    }
+  };
+
+  const handleChangePole = async (
+    member: MemberRecord,
+    newPoleId: string | null
+  ) => {
+    const nextPoleIds = newPoleId ? [newPoleId] : [];
+    await handleChangeMemberPoles(member, nextPoleIds);
   };
 
   const handleDeleteMember = (member: MemberRecord) => {
@@ -932,6 +1018,7 @@ export default function AdminDashboardPage() {
             {activeTab === "opportunites" && <Briefcase className="w-5 h-5 text-[#fca311]" />}
             {activeTab === "ressources" && <BookOpen className="w-5 h-5 text-[#fca311]" />}
             {activeTab === "stats" && <Trophy className="w-5 h-5 text-[#fca311]" />}
+            {activeTab === "annonces" && <Megaphone className="w-5 h-5 text-[#fca311]" />}
             {["contenu", "temoignages", "parametres"].includes(activeTab) && (
               <Wrench className="w-5 h-5 text-[#fca311]" />
             )}
@@ -954,6 +1041,8 @@ export default function AdminDashboardPage() {
                 ? "Stats & Classement"
                 : activeTab === "activities"
                 ? "Activités du Club"
+                : activeTab === "annonces"
+                ? "Annonces & Posts"
                 : activeTab === "hero"
                 ? "Hero Carousel"
                 : "CGI ENIT"}
@@ -1291,6 +1380,7 @@ export default function AdminDashboardPage() {
                     <thead>
                       <tr className="border-b border-[#2a2c2c] text-[#888] uppercase text-[10px] tracking-wider">
                         <th className="py-3 px-4">MEMBRE</th>
+                        <th className="py-3 px-4">PÔLES ASSIGNÉS</th>
                         <th className="py-3 px-4">STATUT MEMBRE</th>
                         <th className="py-3 px-4">CLASSE & PARCOURS</th>
                         <th className="py-3 px-4">POINTS TOTAL</th>
@@ -1301,7 +1391,7 @@ export default function AdminDashboardPage() {
                     <tbody className="divide-y divide-[#2a2c2c]">
                       {filteredMembers.length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="py-12 text-center text-[#666]">
+                          <td colSpan={7} className="py-12 text-center text-[#666]">
                             Aucun membre trouvé.
                           </td>
                         </tr>
@@ -1340,6 +1430,19 @@ export default function AdminDashboardPage() {
                                   )}
                                 </div>
                               </div>
+                            </td>
+
+                            {/* Poles Multi-Select */}
+                            <td className="py-3.5 px-4">
+                              <MemberPoleMultiSelect
+                                memberId={row.id}
+                                assignedPoleIds={row.pole_ids}
+                                fallbackPoleId={row.pole_id}
+                                poles={poles}
+                                onChange={(newPoleIds) =>
+                                  handleChangeMemberPoles(row, newPoleIds)
+                                }
+                              />
                             </td>
 
                             {/* Statut Membre + Verification */}
@@ -1701,55 +1804,7 @@ export default function AdminDashboardPage() {
             </div>
           )}
 
-          {/* TAB 4, 5: COMING SOON */}
-          {["contenu", "temoignages"].includes(activeTab) && (
-            <div className="py-12 flex items-center justify-center">
-              <div className="bg-[#14213d] border border-[#333535] rounded-2xl p-10 text-center max-w-lg w-full shadow-2xl space-y-6 font-mono">
-                <div className="w-16 h-16 rounded-full bg-[#1e2020] border border-[#333535] text-[#fca311] mx-auto flex items-center justify-center shadow">
-                  <Wrench className="w-8 h-8" />
-                </div>
-                <div className="space-y-2">
-                  <h3 className="text-2xl font-extrabold text-white uppercase tracking-wider">
-                    COMING SOON
-                  </h3>
-                  <div className="h-[2px] w-12 bg-[#fca311] mx-auto" />
-                </div>
 
-                <p className="text-xs text-[#888] leading-relaxed">
-                  This feature is coming soon in the next version of the{" "}
-                  <span className="text-white font-bold">CGI ENIT portal</span>. We are currently
-                  engineering a high-performance environment for your content management.
-                </p>
-
-                <div className="space-y-2 text-left">
-                  <div className="flex justify-between text-[10px] text-[#888]">
-                    <span>SYSTEM CALIBRATION</span>
-                    <span>84% COMPLETE</span>
-                  </div>
-                  <div className="flex gap-1">
-                    {[1, 2, 3, 4].map((i) => (
-                      <div key={i} className="h-3 flex-1 bg-[#fca311] rounded-sm" />
-                    ))}
-                    <div className="h-3 flex-1 bg-[#222] rounded-sm" />
-                  </div>
-                </div>
-
-                <div className="pt-2 flex justify-center gap-3">
-                  <button
-                    onClick={() => setActiveTab("invitations")}
-                    className="bg-[#fca311] hover:bg-[#ffc887] text-black font-bold text-xs uppercase px-5 py-2.5 rounded-lg transition-colors"
-                  >
-                    Return to Dashboard
-                  </button>
-                </div>
-
-                <div className="pt-4 border-t border-[#2a2c2c] flex justify-between items-center text-[10px] text-[#555]">
-                  <span>⚡ Version 2.0.4-beta</span>
-                  <span>🔒 Secure Terminal</span>
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* TAB 4: LOGO & BRANDING SETTINGS */}
           {activeTab === "parametres" && (
@@ -2076,6 +2131,168 @@ export default function AdminDashboardPage() {
           {/* TAB: RESSOURCES CLUB */}
           {activeTab === "ressources" && <ResourcesManager onShowToast={addToast} />}
 
+          {/* TAB: CALENDRIER */}
+          {activeTab === "calendrier" && <CalendarManager />}
+
+          {/* TAB: ANNONCES & POSTS */}
+          {activeTab === "annonces" && (
+            <div className="space-y-6">
+              {/* Header */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h2 className="font-display text-2xl font-bold text-white flex items-center gap-2">
+                    <Megaphone className="w-6 h-6 text-[#fca311]" />
+                    Annonces & Posts du Club
+                  </h2>
+                  <p className="text-xs text-[#888] mt-1">
+                    Créez et publiez des communications officielles visibles par tous les membres et sur la page publique.
+                  </p>
+                </div>
+                <button
+                  onClick={() => { setEditingAnnouncement(null); setIsAnnouncementModalOpen(true); }}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#fca311] text-black font-bold text-xs hover:bg-[#ffc887] transition-all shadow-[0_0_15px_rgba(252,163,17,0.2)] cursor-pointer shrink-0"
+                >
+                  <Plus className="w-4 h-4" />
+                  Nouvelle annonce
+                </button>
+              </div>
+
+              {/* Search bar */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#888]" />
+                <input
+                  type="text"
+                  placeholder="Rechercher une annonce..."
+                  value={announcementSearch}
+                  onChange={(e) => setAnnouncementSearch(e.target.value)}
+                  className="w-full bg-[#1a1c1c] border border-[#2a2c2c] rounded-xl pl-9 pr-4 py-2.5 text-sm text-white placeholder-[#666] focus:outline-none focus:border-[#fca311]/50 transition-colors"
+                />
+              </div>
+
+              {/* Announcements List */}
+              {loadingAnnouncements ? (
+                <div className="flex items-center justify-center py-16">
+                  <Loader2 className="w-8 h-8 text-[#fca311] animate-spin" />
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {announcements
+                    .filter((a) =>
+                      announcementSearch === "" ||
+                      a.title.toLowerCase().includes(announcementSearch.toLowerCase()) ||
+                      (a.content || "").toLowerCase().includes(announcementSearch.toLowerCase())
+                    )
+                    .map((a) => (
+                      <div
+                        key={a.id}
+                        className={`bg-[#1a1c1c] border rounded-2xl p-5 transition-all ${
+                          a.pinned
+                            ? "border-[#fca311]/40 shadow-[0_0_15px_rgba(252,163,17,0.08)]"
+                            : "border-[#2a2c2c] hover:border-white/10"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap mb-1">
+                              {a.pinned && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold uppercase tracking-wider text-[#fca311] bg-[#fca311]/15 px-2 py-0.5 rounded-lg border border-[#fca311]/30">
+                                  <Pin className="w-3 h-3" /> Épinglé
+                                </span>
+                              )}
+                              {a.poles && (
+                                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-sky-400 bg-sky-500/10 px-2 py-0.5 rounded-lg border border-sky-500/20">
+                                  Pôle {a.poles.name}
+                                </span>
+                              )}
+                              <span className="text-[10px] text-[#666] font-mono">
+                                {new Date(a.created_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" })}
+                              </span>
+                            </div>
+                            <h3 className="font-bold text-white text-sm truncate">{a.title}</h3>
+                            {a.excerpt && (
+                              <p className="text-xs text-[#888] mt-1 line-clamp-2">{a.excerpt}</p>
+                            )}
+                          </div>
+
+                          {/* Actions */}
+                          <div className="flex items-center gap-2 shrink-0">
+                            {/* Toggle Pin */}
+                            <button
+                              onClick={async () => {
+                                await supabase.from("announcements").update({ pinned: !a.pinned }).eq("id", a.id);
+                                addToast("success", a.pinned ? "Annonce désépinglée." : "Annonce épinglée.");
+                                fetchAnnouncements();
+                              }}
+                              title={a.pinned ? "Désépingler" : "Épingler"}
+                              className={`p-2 rounded-lg transition-colors cursor-pointer ${
+                                a.pinned
+                                  ? "text-[#fca311] bg-[#fca311]/10 hover:bg-[#fca311]/20"
+                                  : "text-[#666] hover:text-white hover:bg-white/5"
+                              }`}
+                            >
+                              <Pin className="w-4 h-4" />
+                            </button>
+
+                            {/* Edit */}
+                            <button
+                              onClick={() => { setEditingAnnouncement(a); setIsAnnouncementModalOpen(true); }}
+                              title="Modifier"
+                              className="p-2 rounded-lg text-[#666] hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+
+                            {/* Delete */}
+                            <button
+                              onClick={() => {
+                                setModalConfig({
+                                  isOpen: true,
+                                  title: "Supprimer l'annonce",
+                                  message: `Voulez-vous supprimer définitivement "${a.title}" ?`,
+                                  confirmText: "Supprimer",
+                                  variant: "danger",
+                                  onConfirm: async () => {
+                                    await supabase.from("announcements").delete().eq("id", a.id);
+                                    addToast("success", "Annonce supprimée.");
+                                    fetchAnnouncements();
+                                  },
+                                });
+                              }}
+                              title="Supprimer"
+                              className="p-2 rounded-lg text-[#666] hover:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+
+                  {announcements.filter((a) =>
+                    announcementSearch === "" ||
+                    a.title.toLowerCase().includes(announcementSearch.toLowerCase()) ||
+                    (a.content || "").toLowerCase().includes(announcementSearch.toLowerCase())
+                  ).length === 0 && (
+                    <div className="text-center py-16 bg-[#1a1c1c] rounded-3xl border border-dashed border-[#2a2c2c] space-y-3">
+                      <Megaphone className="w-10 h-10 text-[#444] mx-auto" />
+                      <p className="text-sm font-bold text-white">Aucune annonce</p>
+                      <p className="text-xs text-[#888]">Créez votre première annonce pour informer les membres.</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Announcement Create/Edit Modal — rendered inline */}
+              <AnnouncementFormModal
+                isOpen={isAnnouncementModalOpen}
+                onClose={() => { setIsAnnouncementModalOpen(false); setEditingAnnouncement(null); }}
+                editing={editingAnnouncement}
+                poles={poles}
+                onSaved={() => { fetchAnnouncements(); addToast("success", editingAnnouncement ? "Annonce mise à jour !" : "Annonce publiée !"); }}
+              />
+            </div>
+          )}
+
           {/* MEMBER PROFILE & DETAILS MODAL */}
           <AnimatePresence>
             {selectedMemberForDetails && (
@@ -2232,12 +2449,25 @@ export default function AdminDashboardPage() {
                       </h4>
                       <div className="space-y-2">
                         <div className="flex justify-between items-center py-1 border-b border-[#252727]">
-                          <span className="text-[#888]">Pôle assigné :</span>
-                          <span className="text-white font-medium">
-                            {selectedMemberForDetails.pole_id && polesMap[selectedMemberForDetails.pole_id]
-                              ? polesMap[selectedMemberForDetails.pole_id]
-                              : "Non assigné"}
-                          </span>
+                          <span className="text-[#888]">Pôles assignés :</span>
+                          <MemberPoleMultiSelect
+                            memberId={selectedMemberForDetails.id}
+                            assignedPoleIds={selectedMemberForDetails.pole_ids}
+                            fallbackPoleId={selectedMemberForDetails.pole_id}
+                            poles={poles}
+                            onChange={(newPoleIds) => {
+                              handleChangeMemberPoles(selectedMemberForDetails, newPoleIds);
+                              setSelectedMemberForDetails((prev) =>
+                                prev
+                                  ? {
+                                      ...prev,
+                                      pole_ids: newPoleIds,
+                                      pole_id: newPoleIds[0] || null,
+                                    }
+                                  : null
+                              );
+                            }}
+                          />
                         </div>
                         <div className="flex justify-between items-center py-1 border-b border-[#252727]">
                           <span className="text-[#888]">Rôle actuel :</span>
@@ -2474,6 +2704,8 @@ export default function AdminDashboardPage() {
             activeTab !== "formations" &&
             activeTab !== "opportunites" &&
             activeTab !== "activities" &&
+            activeTab !== "annonces" &&
+            activeTab !== "calendrier" &&
             activeTab !== "hero" &&
             activeTab !== "parametres" && (
               <div className="py-12 flex items-center justify-center">

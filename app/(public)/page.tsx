@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence, Variants } from "framer-motion";
 import {
   Users,
@@ -16,11 +16,15 @@ import {
   Lightbulb,
   Factory,
   ChevronRight,
-  ClipboardList
+  ClipboardList,
+  Megaphone,
+  Pin,
+  CalendarDays,
 } from "lucide-react";
 import HeroBackgroundCarousel from "@/components/home/HeroBackgroundCarousel";
 import ClubActivitiesSection from "@/components/home/ClubActivitiesSection";
 import { useSiteSettings } from "@/components/providers/SiteSettingsProvider";
+import { createClient } from "@/lib/supabase/client";
 
 // Types
 interface Roadmap {
@@ -34,6 +38,7 @@ interface Roadmap {
 }
 
 export default function HomePage() {
+  const supabase = createClient();
   const [activeRoadmap, setActiveRoadmap] = useState<string>("supply");
   const { logoUrl } = useSiteSettings();
 

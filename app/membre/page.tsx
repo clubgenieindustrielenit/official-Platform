@@ -6,7 +6,6 @@ import AnimatedPoints from '@/components/membre/dashboard/AnimatedPoints'
 import AnimatedAnnouncementList from '@/components/membre/dashboard/AnimatedAnnouncementList'
 import {
   Zap,
-  Trophy,
   CalendarDays,
   GraduationCap,
   FolderGit2,
@@ -28,10 +27,7 @@ type Announcement = {
   created_at: string
 }
 
-type RankData = {
-  rank: number
-  points_total: number
-}
+
 
 type UpcomingRegistration = {
   activities: Activity | null
@@ -49,14 +45,14 @@ export default async function DashboardPage() {
   inSevenDays.setDate(inSevenDays.getDate() + 7)
 
   const [
-    rankRes,
+    profileRes,
     membersRes,
     upcomingRegsRes,
     activeProjectsRes,
     announcementsRes,
     agendaRes
   ] = await Promise.all([
-    supabase.from('leaderboard').select('rank, points_total').eq('user_id', userId).maybeSingle(),
+    supabase.from('profiles').select('points_total').eq('id', userId).maybeSingle(),
     supabase.from('profiles').select('*', { count: 'exact', head: true }),
     supabase.from('event_registrations').select('activities(*), status').eq('user_id', userId).in('status', ['confirmed', 'waitlisted']).gt('activities.date_start', new Date().toISOString()).order('activities.date_start', { ascending: true }).limit(2),
     supabase.from('projects').select('id, title, progress, status, lead_id, poles(name), project_members(user_id)').neq('status', 'done').order('created_at', { ascending: false }).limit(4),
@@ -64,7 +60,7 @@ export default async function DashboardPage() {
     supabase.from('activities').select('id, title, type, date_start').gt('date_start', new Date().toISOString()).lt('date_start', inSevenDays.toISOString()).order('date_start', { ascending: true })
   ])
 
-  const rankData = (rankRes.data ?? null) as RankData | null
+  const profileData = profileRes.data as { points_total?: number } | null
   const totalMembers = membersRes.count ?? 0
   
   const upcomingRegs = (upcomingRegsRes.data ?? []) as unknown as UpcomingRegistration[]
@@ -103,35 +99,18 @@ export default async function DashboardPage() {
             </p>
           </div>
 
-          {/* Gamification Stats widget */}
-          <div className="flex items-center gap-4 bg-[#1e2020] border border-[#2a2c2c] rounded-2xl p-4 sm:p-5 shrink-0 shadow-lg">
+          {/* Points widget (synced from profiles.points_total) */}
+          <div className="flex items-center gap-3 bg-[#1e2020] border border-[#2a2c2c] rounded-2xl p-4 sm:p-5 shrink-0 shadow-lg">
+            <div className="w-10 h-10 rounded-xl bg-[#fca311]/10 border border-[#fca311]/30 flex items-center justify-center">
+              <Zap className="w-5 h-5 text-[#fca311]" />
+            </div>
             <div>
               <p className="text-[10px] text-[#888] font-mono uppercase tracking-widest mb-1">Mes Points</p>
               <div className="flex items-baseline gap-1">
-                <AnimatedPoints points={rankData?.points_total || 0} />
+                <AnimatedPoints points={profileData?.points_total || 0} />
                 <span className="text-xs text-[#fca311] font-bold">pts</span>
               </div>
             </div>
-
-            <div className="h-10 w-px bg-[#2a2c2c]" />
-
-            <div>
-              <p className="text-[10px] text-[#888] font-mono uppercase tracking-widest mb-1">Classement</p>
-              <div className="flex items-baseline gap-1">
-                <span className="font-mono text-2xl font-bold text-white">
-                  #{rankData?.rank || '-'}
-                </span>
-                <span className="text-[11px] text-[#666] font-mono">/ {totalMembers}</span>
-              </div>
-            </div>
-
-            <Link
-              href="/membre/classement"
-              className="ml-2 w-8 h-8 rounded-xl bg-[#fca311]/10 hover:bg-[#fca311] text-[#fca311] hover:text-black border border-[#fca311]/30 transition-colors flex items-center justify-center cursor-pointer"
-              title="Voir le classement complet"
-            >
-              <Trophy className="w-4 h-4" />
-            </Link>
           </div>
         </div>
       </section>

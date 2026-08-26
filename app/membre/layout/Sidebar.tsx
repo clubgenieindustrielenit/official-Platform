@@ -28,16 +28,15 @@ export default function Sidebar({ profile }: { profile: Profile }) {
   
   const links = [
     { href: '/membre', label: 'Dashboard', icon: Zap },
+    { href: '/membre/annonces', label: 'Annonces', icon: Megaphone },
     { href: '/membre/evenements', label: 'Événements', icon: CalendarDays },
     { href: '/membre/visites', label: 'Visites Industrielles', icon: Factory },
     { href: '/membre/formations', label: 'Formations', icon: GraduationCap },
     { href: '/membre/projets', label: 'Projets', icon: Cog },
     { href: '/membre/opportunites', label: 'Stages & Opportunités', icon: Briefcase },
     { href: '/membre/ressources', label: 'Ressources & Supports', icon: BookOpen },
-    { href: '/membre/annonces', label: 'Annonces', icon: Megaphone },
     { href: '/membre/calendrier', label: 'Calendrier', icon: CalendarRange },
     { href: '/membre/annuaire', label: 'Annuaire', icon: Users },
-    { href: '/membre/classement', label: 'Classement', icon: Trophy },
   ]
 
   return (
@@ -107,7 +106,7 @@ export default function Sidebar({ profile }: { profile: Profile }) {
               {profile.first_name} {profile.last_name}
             </p>
             <p className="text-[10px] text-[#666] truncate">
-              {profile.poles?.name || 'Membre ENIT'}
+              {profile.poles?.name ? `Pôle ${profile.poles.name.replace(/^Pôle\s+/i, '')}` : 'Membre ENIT'}
             </p>
           </div>
         </Link>

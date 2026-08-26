@@ -21,7 +21,7 @@ export async function GET(request: Request) {
       .from("profiles")
       .select(`
         *,
-        poles:pole_id (id, name, slug)
+        poles:pole_id (id, name, color)
       `)
       .eq("id", userId)
       .single();
@@ -29,6 +29,28 @@ export async function GET(request: Request) {
     if (profError || !profile) {
       return NextResponse.json({ error: "Profil introuvable." }, { status: 404 });
     }
+
+    // Fetch all assigned poles
+    let assignedPoles: any[] = [];
+    const allPoleIds: string[] =
+      profile.pole_ids && profile.pole_ids.length > 0
+        ? profile.pole_ids
+        : profile.pole_id
+        ? [profile.pole_id]
+        : [];
+
+    if (allPoleIds.length > 0) {
+      const { data: pData } = await (client as any)
+        .from("poles")
+        .select("id, name, color, icon")
+        .in("id", allPoleIds);
+      assignedPoles = pData || [];
+    }
+
+    const enhancedProfile = {
+      ...profile,
+      assigned_poles: assignedPoles,
+    };
 
     // 2. Fetch Activity Registrations (Visites, Formations, Evénements)
     const { data: registrations } = await (client as any)
@@ -148,7 +170,7 @@ export async function GET(request: Request) {
       }));
 
     return NextResponse.json({
-      profile,
+      profile: enhancedProfile,
       visits,
       formations,
       otherEvents,

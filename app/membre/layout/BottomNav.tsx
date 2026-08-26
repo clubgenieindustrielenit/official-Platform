@@ -1,16 +1,16 @@
 'use client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, CalendarDays, Wrench, Trophy } from 'lucide-react'
+import { LayoutDashboard, CalendarDays, Wrench, Megaphone } from 'lucide-react'
 
 export default function BottomNav() {
   const pathname = usePathname()
 
   const links = [
     { href: '/membre', label: 'Accueil', icon: LayoutDashboard },
+    { href: '/membre/annonces', label: 'Annonces', icon: Megaphone },
     { href: '/membre/evenements', label: 'Événements', icon: CalendarDays },
     { href: '/membre/projets', label: 'Projets', icon: Wrench },
-    { href: '/membre/classement', label: 'Rang', icon: Trophy },
   ]
 
   return (

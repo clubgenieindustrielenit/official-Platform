@@ -65,7 +65,7 @@ export async function POST(request: Request) {
 
     const { client, user } = auth;
     const body = await request.json();
-    const { title, description, category, file_url, drive_url, pole_id } = body;
+    const { title, description, category, academic_year, file_url, drive_url, pole_id } = body;
 
     if (!title || !title.trim()) {
       return NextResponse.json({ error: "Le titre de la ressource est requis." }, { status: 400 });
@@ -81,6 +81,7 @@ export async function POST(request: Request) {
         title: title.trim(),
         description: description?.trim() || null,
         category: category || "autre",
+        academic_year: academic_year || "1ère année GI",
         file_url: file_url || drive_url,
         drive_url: drive_url?.trim() || null,
         pole_id: pole_id || null,
@@ -98,7 +99,7 @@ export async function POST(request: Request) {
     await notifyMembers(
       client,
       "Nouvelle Ressource Partagée 📚",
-      `Le document "${title}" a été ajouté dans l'espace ressources.`,
+      `Le document "${title}" a été ajouté dans l'espace ressources (${academic_year || "GI"}).`,
       "/membre/ressources"
     );
 
@@ -121,7 +122,7 @@ export async function PUT(request: Request) {
 
     const { client } = auth;
     const body = await request.json();
-    const { id, title, description, category, file_url, drive_url, pole_id } = body;
+    const { id, title, description, category, academic_year, file_url, drive_url, pole_id } = body;
 
     if (!id) {
       return NextResponse.json({ error: "Identifiant requis." }, { status: 400 });
@@ -131,6 +132,7 @@ export async function PUT(request: Request) {
     if (title !== undefined) updatePayload.title = title.trim();
     if (description !== undefined) updatePayload.description = description?.trim() || null;
     if (category !== undefined) updatePayload.category = category;
+    if (academic_year !== undefined) updatePayload.academic_year = academic_year;
     if (file_url !== undefined) updatePayload.file_url = file_url;
     if (drive_url !== undefined) updatePayload.drive_url = drive_url;
     if (pole_id !== undefined) updatePayload.pole_id = pole_id || null;

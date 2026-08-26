@@ -15,6 +15,7 @@ import {
   Clock,
   Briefcase,
   UserCheck,
+  ExternalLink,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -25,6 +26,7 @@ export type ProjectItem = {
   status: "planned" | "in_progress" | "done" | string;
   progress: number;
   deadline: string | null;
+  google_form_url?: string | null;
   created_at: string;
   poles: { id: string; name: string; slug?: string } | null;
   lead: {
@@ -212,7 +214,7 @@ export default function ProjectsListClient({ projects, userId }: Props) {
                 <option value="all">Tous les pôles</option>
                 {poles.map((pole) => (
                   <option key={pole.id} value={pole.id}>
-                    {pole.name}
+                    {pole.name.startsWith("Pôle") ? pole.name : `Pôle ${pole.name}`}
                   </option>
                 ))}
               </select>
@@ -341,6 +343,22 @@ export default function ProjectsListClient({ projects, userId }: Props) {
                         </div>
                       </div>
 
+                      {/* Application / Membership / Action CTA */}
+                      {project.google_form_url && !project.isUserMember && !project.isUserLead && (
+                        <div className="pt-1">
+                          <a
+                            href={project.google_form_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-full py-2 px-3 rounded-xl bg-custom-amber hover:bg-[#ffc887] text-black font-extrabold text-[11px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 shadow-[0_0_15px_rgba(252,163,17,0.25)]"
+                          >
+                            <span>Postuler / S&apos;inscrire (Formulaire)</span>
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        </div>
+                      )}
+
                       {/* Team & Deadline footer */}
                       <div className="flex items-center justify-between text-xs text-[#888] pt-1">
                         {/* Member Avatars */}
@@ -380,7 +398,7 @@ export default function ProjectsListClient({ projects, userId }: Props) {
                           </div>
                         ) : (
                           <div className="flex items-center gap-1 text-[11px] text-custom-amber font-semibold group-hover:translate-x-0.5 transition-transform">
-                            <span>Tableau Kanban</span>
+                            <span>Détails & Kanban</span>
                             <ArrowRight className="w-3.5 h-3.5" />
                           </div>
                         )}

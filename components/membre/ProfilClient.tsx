@@ -98,7 +98,9 @@ export default function ProfilClient({
               </p>
               <div className="flex flex-wrap items-center gap-2 mt-2">
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-white">
-                  {initialProfile?.poles?.name || "Membre ENIT"}
+                  {initialProfile?.poles?.name
+                    ? `Pôle ${initialProfile.poles.name.replace(/^Pôle\s+/i, "")}`
+                    : "Membre ENIT"}
                 </span>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-custom-amber/15 text-custom-amber border border-custom-amber/30">
                   {getRoleLabel(initialProfile?.role)}

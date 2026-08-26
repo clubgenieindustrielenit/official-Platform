@@ -38,7 +38,7 @@ export default function UserHeader({ profile }: { profile: Profile }) {
             {profile.first_name} {profile.last_name}
           </p>
           <p className="text-[10px] text-[#666] leading-none mt-1">
-            {profile.poles?.name || 'Membre ENIT'} · {getRoleLabel(profile.role)}
+            {profile.poles?.name ? `Pôle ${profile.poles.name.replace(/^Pôle\s+/i, '')}` : 'Membre ENIT'} · {getRoleLabel(profile.role)}
           </p>
         </div>
       </div>

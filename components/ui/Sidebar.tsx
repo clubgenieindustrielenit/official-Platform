@@ -17,6 +17,8 @@ import {
   Trophy,
   GraduationCap,
   Briefcase,
+  Megaphone,
+  CalendarDays,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSiteSettings } from "@/components/providers/SiteSettingsProvider";
@@ -38,9 +40,9 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
   { id: "formations", label: "Gestion des Formations", icon: GraduationCap },
   { id: "opportunites", label: "Opportunités & Stages", icon: Briefcase },
   { id: "activities", label: "Activités du Club", icon: Sparkles },
+  { id: "annonces", label: "Annonces & Posts", icon: Megaphone },
+  { id: "calendrier", label: "Calendrier", icon: CalendarDays },
   { id: "hero", label: "Hero Carousel", icon: Image },
-  { id: "contenu", label: "Contenu", icon: FileText, isComingSoon: true },
-  { id: "temoignages", label: "Témoignages", icon: MessageSquare, isComingSoon: true },
   { id: "parametres", label: "Logo & Marque", icon: Settings },
 ];
 

@@ -12,6 +12,7 @@ export type Database = {
           last_name: string | null
           role: 'admin' | 'membre_bureau' | 'membre_actif' | 'bureau' | 'membre'
           pole_id: string | null
+          pole_ids?: string[] | null
           points_total: number
           year: string | null
           avatar_url: string | null

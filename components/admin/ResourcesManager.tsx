@@ -14,6 +14,7 @@ import {
   X,
   Download,
   FolderPlus,
+  GraduationCap,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
@@ -23,6 +24,7 @@ interface ResourceRecord {
   title: string;
   description?: string | null;
   category?: string | null;
+  academic_year?: string | null;
   file_url: string;
   drive_url?: string | null;
   pole_id?: string | null;
@@ -40,6 +42,12 @@ const CATEGORIES = [
   { id: "autre", label: "Autre" },
 ];
 
+const ACADEMIC_YEARS = [
+  { id: "1ère année GI", label: "1ère année GI" },
+  { id: "2ème année GI", label: "2ème année GI" },
+  { id: "Tronc commun / Tous", label: "Tronc commun / Toutes les promotions" },
+];
+
 export default function ResourcesManager({
   onShowToast,
 }: {
@@ -50,6 +58,7 @@ export default function ResourcesManager({
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterCategory, setFilterCategory] = useState("all");
+  const [filterYear, setFilterYear] = useState("all");
 
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -60,6 +69,7 @@ export default function ResourcesManager({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("cours");
+  const [academicYear, setAcademicYear] = useState("1ère année GI");
   const [driveUrl, setDriveUrl] = useState("");
   const [file, setFile] = useState<File | null>(null);
 
@@ -86,6 +96,7 @@ export default function ResourcesManager({
     setTitle("");
     setDescription("");
     setCategory("cours");
+    setAcademicYear("1ère année GI");
     setDriveUrl("");
     setFile(null);
     setIsModalOpen(true);
@@ -96,6 +107,7 @@ export default function ResourcesManager({
     setTitle(res.title || "");
     setDescription(res.description || "");
     setCategory(res.category || "cours");
+    setAcademicYear(res.academic_year || "1ère année GI");
     setDriveUrl(res.drive_url || "");
     setFile(null);
     setIsModalOpen(true);
@@ -109,7 +121,7 @@ export default function ResourcesManager({
     }
 
     if (!file && !driveUrl.trim() && !editingResource?.file_url) {
-      onShowToast("error", "Veuillez téléverser un fichier ou fournir un lien Google Drive.");
+      onShowToast("error", "Veuillez fournir un lien Google Drive ou téléverser un fichier.");
       return;
     }
 
@@ -139,6 +151,7 @@ export default function ResourcesManager({
         title: title.trim(),
         description: description.trim() || null,
         category,
+        academic_year: academicYear,
         drive_url: driveUrl.trim() || null,
         file_url: finalFileUrl || driveUrl.trim(),
       };
@@ -203,9 +216,11 @@ export default function ResourcesManager({
   const filtered = resources.filter((r) => {
     const matchSearch =
       (r.title || "").toLowerCase().includes(search.toLowerCase()) ||
-      (r.description || "").toLowerCase().includes(search.toLowerCase());
+      (r.description || "").toLowerCase().includes(search.toLowerCase()) ||
+      (r.academic_year || "").toLowerCase().includes(search.toLowerCase());
     const matchCat = filterCategory === "all" || r.category === filterCategory;
-    return matchSearch && matchCat;
+    const matchYear = filterYear === "all" || (r.academic_year || "1ère année GI").includes(filterYear);
+    return matchSearch && matchCat && matchYear;
   });
 
   return (
@@ -218,7 +233,7 @@ export default function ResourcesManager({
             <span>Gestion des Ressources Pédagogiques</span>
           </h2>
           <p className="text-xs text-[#888] mt-1">
-            Partagez devoirs surveillés, examens, supports de cours et liens Google Drive.
+            Partagez devoirs surveillés, examens, supports de cours classés par année (1ère année GI, 2ème année GI).
           </p>
         </div>
 
@@ -231,7 +246,7 @@ export default function ResourcesManager({
         </button>
       </div>
 
-      {/* Search & Filter */}
+      {/* Search & Filters */}
       <div className="flex flex-col sm:flex-row items-center gap-3">
         <div className="relative flex-1 w-full">
           <Search className="w-4 h-4 text-[#666] absolute left-3.5 top-3" />
@@ -239,10 +254,20 @@ export default function ResourcesManager({
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Rechercher par titre, description..."
+            placeholder="Rechercher par titre, matière, classe..."
             className="w-full bg-[#141515] border border-[#2a2c2c] focus:border-custom-amber rounded-xl py-2.5 pl-10 pr-4 text-xs text-[#e2e2e2] outline-none transition-colors"
           />
         </div>
+
+        <select
+          value={filterYear}
+          onChange={(e) => setFilterYear(e.target.value)}
+          className="w-full sm:w-auto bg-[#141515] border border-[#2a2c2c] rounded-xl py-2.5 px-3 text-xs text-[#aaa] outline-none focus:border-custom-amber"
+        >
+          <option value="all">Toutes les classes</option>
+          <option value="1ère année GI">1ère année GI</option>
+          <option value="2ème année GI">2ème année GI</option>
+        </select>
 
         <select
           value={filterCategory}
@@ -279,7 +304,10 @@ export default function ResourcesManager({
             >
               <div>
                 <div className="flex items-start justify-between gap-3 mb-2.5">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-[#fca311]/10 text-[#fca311] border border-[#fca311]/20">
+                      {res.academic_year || "1ère année GI"}
+                    </span>
                     {getCategoryBadge(res.category)}
                     {res.drive_url && (
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
@@ -327,29 +355,27 @@ export default function ResourcesManager({
                 </span>
 
                 <div className="flex items-center gap-2">
-                  {res.drive_url && (
+                  {res.drive_url ? (
                     <a
                       href={res.drive_url}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-white font-semibold text-[11px] transition-colors"
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-custom-amber/15 hover:bg-custom-amber/25 text-custom-amber font-bold text-xs transition-colors"
                     >
-                      <span>Drive</span>
-                      <ExternalLink className="w-3 h-3 text-custom-amber" />
+                      <span>Ouvrir Drive</span>
+                      <ExternalLink className="w-3 h-3" />
                     </a>
-                  )}
-
-                  {res.file_url && (
+                  ) : res.file_url ? (
                     <a
                       href={res.file_url}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-custom-amber/10 hover:bg-custom-amber/20 text-custom-amber font-semibold text-[11px] transition-colors"
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-semibold text-xs transition-colors"
                     >
-                      <span>Télécharger</span>
-                      <Download className="w-3 h-3" />
+                      <span>Consulter</span>
+                      <ExternalLink className="w-3 h-3" />
                     </a>
-                  )}
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -393,19 +419,39 @@ export default function ResourcesManager({
                   />
                 </div>
 
-                <div className="space-y-1">
-                  <label className="text-[11px] font-semibold text-[#888] uppercase">Catégorie</label>
-                  <select
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    className="w-full bg-[#1e2020] border border-[#333535] focus:border-custom-amber rounded-xl py-2.5 px-3.5 text-xs text-white outline-none"
-                  >
-                    {CATEGORIES.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.label}
-                      </option>
-                    ))}
-                  </select>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-semibold text-custom-amber uppercase flex items-center gap-1">
+                      <GraduationCap className="w-3.5 h-3.5" />
+                      <span>Classe / Année *</span>
+                    </label>
+                    <select
+                      value={academicYear}
+                      onChange={(e) => setAcademicYear(e.target.value)}
+                      className="w-full bg-[#1e2020] border border-custom-amber/40 focus:border-custom-amber rounded-xl py-2.5 px-3.5 text-xs text-white outline-none"
+                    >
+                      {ACADEMIC_YEARS.map((y) => (
+                        <option key={y.id} value={y.id}>
+                          {y.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-semibold text-[#888] uppercase">Catégorie</label>
+                    <select
+                      value={category}
+                      onChange={(e) => setCategory(e.target.value)}
+                      className="w-full bg-[#1e2020] border border-[#333535] focus:border-custom-amber rounded-xl py-2.5 px-3.5 text-xs text-white outline-none"
+                    >
+                      {CATEGORIES.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
                 <div className="space-y-1">
@@ -420,18 +466,21 @@ export default function ResourcesManager({
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[11px] font-semibold text-[#888] uppercase">Lien Google Drive</label>
+                  <label className="text-[11px] font-semibold text-custom-amber uppercase flex items-center gap-1">
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span>Lien Google Drive du Document</span>
+                  </label>
                   <input
                     type="url"
                     value={driveUrl}
                     onChange={(e) => setDriveUrl(e.target.value)}
-                    placeholder="https://drive.google.com/..."
-                    className="w-full bg-[#1e2020] border border-[#333535] focus:border-custom-amber rounded-xl py-2.5 px-3.5 text-xs text-white outline-none"
+                    placeholder="https://drive.google.com/drive/folders/..."
+                    className="w-full bg-[#1e2020] border border-custom-amber/30 focus:border-custom-amber rounded-xl py-2.5 px-3.5 text-xs text-white outline-none placeholder-[#666]"
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[11px] font-semibold text-[#888] uppercase">Ou téléverser un fichier</label>
+                  <label className="text-[11px] font-semibold text-[#888] uppercase">Ou fichier alternatif</label>
                   <input
                     type="file"
                     onChange={(e) => setFile(e.target.files?.[0] || null)}
@@ -450,7 +499,7 @@ export default function ResourcesManager({
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="px-5 py-2.5 rounded-xl bg-custom-amber text-black font-bold text-xs hover:bg-[#ffc887] transition-colors flex items-center gap-2 disabled:opacity-50"
+                    className="px-5 py-2.5 rounded-xl bg-custom-amber text-black font-bold text-xs hover:bg-[#ffc887] transition-colors flex items-center gap-2 disabled:opacity-50 shadow-[0_0_15px_rgba(252,163,17,0.3)]"
                   >
                     {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Publier"}
                   </button>

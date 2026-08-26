@@ -69,7 +69,7 @@ export default function AnnouncementFeed({ initialAnnouncements }: { initialAnno
                 )}
                 {a.poles && (
                   <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-sky-400 bg-sky-500/10 px-3 py-1 rounded-xl border border-sky-500/20">
-                    Pôle {a.poles.name}
+                    Pôle {a.poles.name.replace(/^Pôle\s+/i, '')}
                   </span>
                 )}
               </div>

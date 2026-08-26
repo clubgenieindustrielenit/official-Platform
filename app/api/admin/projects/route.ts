@@ -107,7 +107,7 @@ export async function POST(request: Request) {
     const { client } = auth;
     const body = await request.json();
 
-    const { title, description, pole_id, lead_id, deadline, member_ids } = body;
+    const { title, description, pole_id, lead_id, deadline, google_form_url, member_ids } = body;
 
     if (!title || !title.trim()) {
       return NextResponse.json({ error: "Le titre du projet est requis." }, { status: 400 });
@@ -122,6 +122,7 @@ export async function POST(request: Request) {
         pole_id: pole_id || null,
         lead_id: lead_id || null,
         deadline: deadline || null,
+        google_form_url: google_form_url?.trim() || null,
         status: "planned",
         progress: 0
       })
@@ -175,7 +176,7 @@ export async function PUT(request: Request) {
 
     const { client } = auth;
     const body = await request.json();
-    const { id, title, description, pole_id, lead_id, deadline, status, progress, member_ids } = body;
+    const { id, title, description, pole_id, lead_id, deadline, google_form_url, status, progress, member_ids } = body;
 
     if (!id) {
       return NextResponse.json({ error: "Identifiant du projet requis." }, { status: 400 });
@@ -187,6 +188,7 @@ export async function PUT(request: Request) {
     if (pole_id !== undefined) updatePayload.pole_id = pole_id || null;
     if (lead_id !== undefined) updatePayload.lead_id = lead_id || null;
     if (deadline !== undefined) updatePayload.deadline = deadline || null;
+    if (google_form_url !== undefined) updatePayload.google_form_url = google_form_url?.trim() || null;
     if (status !== undefined) updatePayload.status = status;
     if (progress !== undefined) updatePayload.progress = progress;
 

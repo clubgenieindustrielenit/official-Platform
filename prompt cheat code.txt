@@ -1,0 +1,312 @@
+Build GI Platform — Official Member & Management Platform for CGI ENIT (Club Génie Industriel de l'ENIT).
+Fuses Public Vitrine, Interactive Member Portal (Kanban, Leaderboard, Gamification, Visites, Formations, Opportunities), and "Kinetic Forge" Industrial Tech Edge Admin & Bureau Terminal into an end-to-end organizational platform.
+
+═══ TECH STACK ═══
+Frontend Framework: Next.js 16 (App Router, proxy.ts middleware convention), React 19, TypeScript 5
+BaaS & Database: Supabase (PostgreSQL, Row Level Security, Auth, SSR Cookies via @supabase/ssr & @supabase/supabase-js)
+Design System / Styling: "Kinetic Forge" (Industrial Tech Edge — Dark theme default #000000/#0d0e0e, surface #141515, border #2a2c2c, accent amber #fca311, navy #14213d, Google Font Inter), Tailwind CSS v4, Vanilla CSS variables
+UI & Animations: @dnd-kit/core & @dnd-kit/sortable (Kanban drag-and-drop), Recharts (Leaderboard & Admin stats), Lucide React (Icons), Framer Motion (Micro-animations), Next Themes
+Email & Auth: Resend API (invitation emails), Supabase Auth SSR with Tokenized Invite System (/invite/[token])
+Deployment: Vercel (gi-platform-xi.vercel.app)
+
+═══ PROJECT STRUCTURE ═══
+GI Platform/
+├── app/
+│   ├── (auth)/
+│   │   └── login/                  # Page de connexion Supabase Auth SSR
+│   ├── (public)/
+│   │   ├── page.tsx                # Page d'accueil officielle vitrine (Hero carousel, Pôles, Événements)
+│   │   ├── activities/             # Visualisation des activités publiques
+│   │   ├── invite/[token]/         # Inscription sécurisée par jeton d'invitation unique
+│   │   ├── complete-profile/       # Pre-inscription & complétion de profil membre
+│   │   ├── admin/                  # Terminal Administrateur ("Kinetic Forge" UI)
+│   │   ├── bureau/                 # Espace Membre du Bureau
+│   │   └── dashboard/              # Redirection & dashboard membre actif
+│   ├── membre/                     # Espace Membre Sécurisé (Navbar Membre + Sidebar)
+│   │   ├── page.tsx                # Tableau de bord principal du membre
+│   │   ├── annonces/               # Feed d'annonces du club
+│   │   ├── annuaire/               # Annuaire interactif des membres du club
+│   │   ├── calendrier/             # Calendrier des événements et formations
+│   │   ├── classement/             # Leaderboard & Classement général par points
+│   │   ├── evenements/             # Liste des événements du club
+│   │   ├── formations/             # Formations & ateliers avec support téléchargeable
+│   │   ├── opportunites/           # Hub stages (PFE, Été, Ouvrier) & offres d'emploi
+│   │   ├── profil/                 # Profil membre & passeport individuel
+│   │   ├── projets/                # Tableau Kanban des projets du club (@dnd-kit)
+│   │   ├── ressources/             # Centre de ressources & documents Drive
+│   │   └── visites/                # Visites industrielles avec système de réservation
+│   ├── api/
+│   │   ├── admin/                  # Routes API Admin (invite, members, projects, visites, formations, settings, stats)
+│   │   ├── activities/             # Routes API Activités
+│   │   ├── auth/                   # Callbacks & handlers Supabase Auth
+│   │   └── membre/                 # API profil membre & notifications
+│   ├── globals.css                 # Design System Kinetic Forge (Variables CSS dark/light, scrollbars, glassmorphism)
+│   └── layout.tsx                  # Root Layout + Providers
+├── components/
+│   ├── Navbar.tsx                  # Barre de navigation principale
+│   ├── Footer.tsx                  # Pied de page officiel
+│   ├── admin/                      # Composants Terminal Admin (ProjectManager, VisitesManager, FormationsManager, MemberPassportModal, LeaderboardStats, OpportunitiesManager, PostCreatorModal, ResourcesManager)
+│   ├── home/                       # Composants Page d'accueil (HeroCarousel, PolesGrid, ActivitiesSection, Testimonials)
+│   ├── membre/                     # Composants Espace Membre (ProfilClient, PreinscriptionForm, EditProfileModal, KanbanBoard, LeaderboardClient, NotificationDrawer)
+│   └── ui/                         # Composants UI réutilisables (Toast, ConfirmModal, BottomNav, RoleBadge, Sidebar, DataTable)
+├── lib/
+│   ├── supabase/                   # Clients Supabase (client.ts, server.ts, proxy.ts, adminAuth.ts, database.types.ts)
+│   ├── types/                      # Types TypeScript & Définition des rôles (roles.ts)
+│   └── utils/                      # Helper functions & formatters
+├── supabase/
+│   └── migrations/                 # Migrations SQL (Profiles, Invitations, Activities, Visites, Projects, Tasks, Opportunities, Points, Notifications)
+├── proxy.ts                        # Middleware Next.js 16 pour le rafraîchissement des sessions Supabase Auth
+└── supabase_setup.sql              # Script d'initialisation complet DB Supabase + RLS + Buckets
+
+═══ MODULE 1: PUBLIC SHOWCASE & INVITATION AUTH ═══
+
+page.tsx — Page d'Accueil Vitrine:
+  - Carrousel dynamique d'images Hero (table public.hero_images) avec ordre d'affichage modifiable
+  - Présentation des 5 Pôles du CGI ENIT (Sponsoring, Événements, RH & Logistique, Media & Design, Academic & Pro)
+  - Section Activités à la une (Visites industrielles, Formations, Hackathons, Workshops)
+  - Statistiques clés du club (Nombre de membres, Entreprises partenaires, Projets réalisés)
+  - Logo dynamique du club récupéré depuis public.site_settings
+
+(auth)/login/page.tsx — Connexion Sécurisée:
+  - Formulaire de connexion par Email & Mot de passe via Supabase Auth SSR
+  - Auto-redirection selon le rôle canonique (admin/membre_bureau → /admin ou /bureau, membre_actif → /membre)
+
+invite/[token]/page.tsx — Système d'Invitation Exclusive:
+  - Validation du jeton UUID dans public.invitations (vérification status == 'pending' et expires_at > NOW())
+  - Formulaire de création de compte sécurisé (Prénom, Nom, Mot de passe)
+  - Création automatique du profil dans public.profiles avec le rôle attribué à l'invitation
+  - Mise à jour automatique de l'invitation (status = 'accepted', accepted_at = NOW())
+
+complete-profile/page.tsx — Pre-inscription & Profil Membre:
+  - Formulaire de complétion du profil membre CGI ENIT:
+    · Informations académiques: Classe (1AGI1..3AGI), Section Prépa (MP, PC, PT), Établissement prépa, Rang au concours
+    · Coordonnées: Téléphone, URL LinkedIn, Dépôt du CV (PDF Supabase Storage bucket 'brand-assets')
+    · Statut Membre: Senior, Actif, Alumni
+
+═══ MODULE 2: MEMBER PORTAL (`/membre`) & SERVICES ═══
+
+projets/page.tsx & components/membre/projects/KanbanBoard.tsx — Tableau Kanban de Projets:
+  - Drag-and-drop interactif avec @dnd-kit/core & @dnd-kit/sortable
+  - 3 colonnes de statut: À faire (todo), En cours (in_progress), Terminé (done)
+  - Filtrage par projet attribué et par Pôle du club
+  - Attribution de tâches aux membres avec mise à jour temps réel
+  - Barre de progression du projet (0-100%) synchronisée avec le statut des tâches
+
+visites/page.tsx & components/admin/VisitesManager.tsx — Visites Industrielles:
+  - Catalogue des visites industrielles organisées par le club (Entreprises partenaires, Usines, Sites technologiques)
+  - Système de réservation intelligente via la fonction SQL SECURITY DEFINER register_to_activity(activity_id):
+    · Vérification de la capacité max (capacity)
+    · Attribution automatique du statut 'confirmed' ou 'waitlisted' avec position dans la file (queue_position)
+  - Annulation intelligente via cancel_registration(registration_id):
+    · Promotion automatique du 1er membre en liste d'attente vers le statut 'confirmed'
+    · Envoi instantané d'une notification système ('Place confirmée ! 🎉')
+  - Attribution de +5 points de présence par déclencheur SQL award_attendance_points lors du check-in admin
+
+formations/page.tsx & components/admin/FormationsManager.tsx — Formations & Workshops:
+  - Catalogue des formations académiques & techniques (Lean Six Sigma, Industry 4.0, Python, CAD/CAM, Power BI)
+  - Informations détaillées: Formateur, Prérequis, Date/Heure, Lien Google Form, Matériel pédagogique téléchargeable (training_material_url)
+
+opportunites/page.tsx & components/admin/OpportunitiesManager.tsx — Hub Opportunités & Stages:
+  - Plateforme d'offres exclusives réservées aux membres du CGI ENIT
+  - Typologie d'offres: Stage PFE, Stage Été, Stage Ouvrier, Emploi, Autre
+  - Fiche opportunité: Entreprise, Localisation, Description, Exigences, Date limite, Email contact, Lien de postulation directe
+
+classement/page.tsx & LeaderboardClient.tsx — Gamification & Classement General:
+  - Podium des Top 3 membres les plus actifs avec badges dorés, argentés et bronzés
+  - Tableau de classement par points cumulés avec filtres par Classe (1AGI..3AGI) et par Pôle
+  - Badges de niveau: Senior, Actif, Alumni
+
+annuaire/page.tsx — Directory des Membres:
+  - Moteur de recherche dynamique par nom, prénom, classe ou pôle
+  - Fiches membres avec liens LinkedIn et accès aux CV certifiés
+
+═══ MODULE 3: KINETIC FORGE ADMIN & BUREAU TERMINAL ═══
+
+admin/page.tsx & bureau/page.tsx — Terminal d'Administration High-Tech:
+  - Interface haute densité conçue sous la charte "Kinetic Forge" (#121414, #14213d, #fca311)
+  - Réservé exclusivement aux utilisateurs possédant les privilèges Admin ou Membre du Bureau (isBureauOrAdmin)
+
+Onglets du Terminal Admin:
+  1. Vue d'ensemble & KPIs: Statistiques en temps réel (Nombre total de membres, Invitations en attente, Projets en cours, Taux de présence aux visites)
+  2. Gestion des Invitations:
+     · Génération d'invitations tokenisées avec sélection du rôle (membre_bureau, membre_actif) et durée de validité (7, 14, 30 jours)
+     · Bouton "LINK" pour la copie instantanée de l'URL unique d'invitation
+     · Suivi des statuts (Pending, Accepted, Expired, Cancelled)
+  3. Gestion des Membres (MemberPassportModal):
+     · Recherche avancée et modification instantanée des rôles (Admin, Membre Bureau, Membre Actif)
+     · Validation du statut membre (statut_membre_verified)
+     · Attribution / Déduction manuelle de points avec motif consigné dans public.points_log
+  4. Gestion des Projets (ProjectManager):
+     · Interface CRUD complète des projets du club: Titre, Description, Lead du projet, Pôle rattaché, Date limite, Progression
+     · Checklist d'assignation des membres du projet (table public.project_members)
+     · Création et gestion des tâches du projet (table public.project_tasks)
+  5. Gestion des Visites & Formations (VisitesManager & FormationsManager):
+     · Création et publication d'activités avec upload d'images de couverture
+     · Gestion de la jauge (capacité), dates de début/fin, entreprise hôte, formateur
+     · Registre des membres inscrits avec case à cocher de présence (déclenche l'attribution de +5 pts et la notification)
+  6. Gestion des Opportunités (OpportunitiesManager):
+     · Publication, modification et désactivation des offres de stage et d'emploi
+  7. Carrousel Hero & Paramètres du Site:
+     · Upload et réordonnancement des images du carrousel de la page d'accueil (bucket 'hero-carousel')
+     · Mise à jour du logo officiel du site (table public.site_settings)
+
+═══ SPECIAL GAMIFICATION & POINTS ENGINE ═══
+
+award_profile_completion_points() — Trigger PL/pgSQL sur public.profiles:
+  - Photo de profil ajoutée (avatar_url): +5 points
+  - CV téléversé (cv_url): +10 points
+  - Lien LinkedIn renseigné (linkedin_url): +5 points
+  - Section prépa renseignée (prepa_section): +5 points
+  - Établissement prépa renseigné (prepa_etablissement): +5 points
+  - Rang au concours renseigné (rang_concours): +5 points
+  - Total potentiel lors de la complétion initiale du profil: 35 points
+
+award_attendance_points() — Trigger PL/pgSQL sur public.event_registrations:
+  - Déclenché lors du passage de attended à true par un administrateur
+  - Crédite automatiquement +5 points sur le profil du membre
+  - Ajoute une entrée dans public.points_log (reason: "Présence visite : [Entreprise/Titre]")
+  - Génère une notification système instantanée pour le membre ("Points de présence crédités 🏭")
+
+Moteur de Liste d'Attente & Notification Automatique:
+  - register_to_activity(p_activity_id): Si nombre d'inscrits confirmés >= capacity → statut 'waitlisted' avec position queue_position
+  - cancel_registration(p_registration_id): Si une place confirmée est libérée → le premier membre waitlisted passe en status='confirmed' et reçoit une notification automatique: "Une place s'est libérée pour la visite chez [Entreprise]. Votre inscription est désormais confirmée !"
+
+═══ UNIFIED ROLE & PERMISSION SYSTEM (RLS & MIDDLEWARE) ═══
+
+Rôles Canoniques de l'Application (lib/types/roles.ts):
+  - 'admin'         : Accès complet au Terminal Admin, gestion globale des membres, projets, invitations et paramètres
+  - 'membre_bureau' : Accès aux fonctionnalités de gestion du Bureau, suivi des projets, visites et formations
+  - 'membre_actif'  : Accès à l'Espace Membre (/membre), Kanban projets, réservation de visites, leaderboard, opportunités
+
+Helpers de Rôle:
+  - isBureauOrAdmin(role) : Retourne true pour 'admin', 'membre_bureau' (et alias hérités 'bureau', 'pole_lead')
+  - isAdmin(role)         : Retourne true uniquement pour 'admin'
+  - getRoleLabel(role)    : Retourne le libellé propre ("Administrateur", "Membre du Bureau", "Membre Actif")
+
+Middleware & Proxies (proxy.ts & lib/supabase/proxy.ts):
+  - Conforme à Next.js 16 App Router (remplace l'ancien middleware.ts)
+  - Maintient et rafraîchit automatiquement les cookies de session Supabase Auth
+  - Restreint l'accès aux routes /admin et /bureau selon les privilèges de l'utilisateur connecté
+
+═══ DATABASE SCHEMA ═══
+
+public.profiles (Stockage des membres et profils)
+  id UUID PK (ref auth.users.id ON DELETE CASCADE), email TEXT NOT NULL, first_name TEXT, last_name TEXT,
+  role TEXT DEFAULT 'membre_actif' CHECK (role IN ('admin', 'membre_bureau', 'membre_actif')),
+  phone TEXT, classe TEXT CHECK (classe IN ('1AGI1','1AGI2','1AGI3','2AGI1','2AGI2','2AGI3','3AGI')),
+  linkedin_url TEXT, prepa_section TEXT CHECK (prepa_section IN ('MP','PC','PT')), prepa_etablissement TEXT,
+  rang_concours INT, cv_url TEXT, avatar_url TEXT, statut_membre TEXT CHECK (statut_membre IN ('senior','actif','alumni')),
+  statut_membre_verified BOOL DEFAULT false, points_total INT DEFAULT 0, profile_completed_at TIMESTAMPTZ, created_at TIMESTAMPTZ
+
+public.invitations (Système d'invitation tokenisée)
+  id UUID PK DEFAULT gen_random_uuid(), email TEXT NOT NULL, role TEXT NOT NULL CHECK (role IN ('membre_actif','membre_bureau')),
+  token UUID UNIQUE DEFAULT gen_random_uuid(), status TEXT DEFAULT 'pending' CHECK (status IN ('pending','accepted','expired','cancelled')),
+  expires_at TIMESTAMPTZ NOT NULL, created_by UUID (ref auth.users), created_at TIMESTAMPTZ, accepted_at TIMESTAMPTZ
+
+public.poles (Pôles d'activités du CGI ENIT)
+  id UUID PK DEFAULT gen_random_uuid(), name TEXT NOT NULL, code TEXT UNIQUE NOT NULL, description TEXT, icon TEXT, color TEXT, lead_id UUID (ref public.profiles)
+
+public.hero_images (Carrousel page d'accueil)
+  id UUID PK DEFAULT gen_random_uuid(), image_url TEXT NOT NULL, display_order INT DEFAULT 0, uploaded_by UUID (ref auth.users), created_at TIMESTAMPTZ
+
+public.site_settings (Paramètres globaux du site)
+  setting_key TEXT PK, setting_value TEXT NOT NULL, updated_at TIMESTAMPTZ
+
+public.activities (Visites, Formations & Événements)
+  id UUID PK DEFAULT gen_random_uuid(), title TEXT NOT NULL, description TEXT, content TEXT, image_url TEXT, cover_image_url TEXT, photo_urls TEXT[],
+  category TEXT CHECK (category IN ('Workshop','Hackathon','Visite','Formation','Conférence','Autre')),
+  type TEXT DEFAULT 'event' CHECK (type IN ('event','visit','formation')), date_start TIMESTAMPTZ, date_end TIMESTAMPTZ, location TEXT, entreprise TEXT,
+  trainer_name TEXT, prerequisites TEXT, google_form_url TEXT, training_material_url TEXT, capacity INT,
+  status TEXT DEFAULT 'published' CHECK (status IN ('draft','published','archived','cancelled','done')), created_by UUID (ref auth.users), created_at TIMESTAMPTZ
+
+public.event_registrations (Inscriptions & Présences aux activités)
+  id UUID PK DEFAULT gen_random_uuid(), activity_id UUID NOT NULL (ref public.activities ON DELETE CASCADE), user_id UUID NOT NULL (ref public.profiles ON DELETE CASCADE),
+  status TEXT DEFAULT 'confirmed' CHECK (status IN ('confirmed','waitlisted','cancelled')), queue_position INT, attended BOOL DEFAULT false, points_awarded BOOL DEFAULT false, created_at TIMESTAMPTZ, UNIQUE(activity_id, user_id)
+
+public.projects (Projets du club)
+  id UUID PK DEFAULT gen_random_uuid(), title TEXT NOT NULL, description TEXT, pole_id UUID (ref public.poles), lead_id UUID (ref public.profiles),
+  status public.project_status DEFAULT 'planned' CHECK (status IN ('planned','in_progress','done')), deadline DATE, progress INT DEFAULT 0 CHECK (progress >= 0 AND progress <= 100), created_at TIMESTAMPTZ
+
+public.project_members (Membres assignés aux projets)
+  id UUID PK DEFAULT gen_random_uuid(), project_id UUID NOT NULL (ref public.projects ON DELETE CASCADE), user_id UUID NOT NULL (ref public.profiles ON DELETE CASCADE), joined_at TIMESTAMPTZ, points_awarded BOOL DEFAULT false, UNIQUE(project_id, user_id)
+
+public.project_tasks (Tâches Kanban du projet)
+  id UUID PK DEFAULT gen_random_uuid(), project_id UUID NOT NULL (ref public.projects ON DELETE CASCADE), title TEXT NOT NULL, status public.task_status DEFAULT 'todo' CHECK (status IN ('todo','in_progress','done')), assignee_id UUID (ref public.profiles), created_at TIMESTAMPTZ
+
+public.opportunities (Offres de stages & emploi)
+  id UUID PK DEFAULT gen_random_uuid(), title TEXT NOT NULL, company TEXT NOT NULL, type TEXT CHECK (type IN ('stage_pfe','stage_ete','stage_ouvrier','emploi','autre')), location TEXT, description TEXT, requirements TEXT, deadline DATE, contact_email TEXT, apply_url TEXT, is_active BOOL DEFAULT true, created_by UUID (ref public.profiles), created_at TIMESTAMPTZ
+
+public.resources (Centre de documentation & drive)
+  id UUID PK DEFAULT gen_random_uuid(), title TEXT NOT NULL, category TEXT, description TEXT, drive_url TEXT, file_url TEXT, created_by UUID (ref public.profiles), created_at TIMESTAMPTZ
+
+public.notifications (Système de notifications membres)
+  id UUID PK DEFAULT gen_random_uuid(), user_id UUID NOT NULL (ref public.profiles ON DELETE CASCADE), type TEXT CHECK (type IN ('points','message','système')), title TEXT NOT NULL, message TEXT NOT NULL, link TEXT, read BOOL DEFAULT false, created_at TIMESTAMPTZ
+
+public.points_log (Historique de l'attribution des points)
+  id UUID PK DEFAULT gen_random_uuid(), user_id UUID NOT NULL (ref public.profiles ON DELETE CASCADE), amount INT NOT NULL, reason TEXT NOT NULL, related_project_id UUID (ref public.projects), created_at TIMESTAMPTZ
+
+═══ UI DESIGN TOKENS (Kinetic Forge / Industrial Tech Edge) ═══
+bg-app: #000000 / #0d0e0e (Fond sombre industriel)
+bg-surface: #141515 / #1e2020 (Panneaux & cartes glassmorphism)
+bg-elevated: #1f2022 / #282a2b (Modales & dropdowns)
+border-subtle: #2a2c2c (Bordures discrètes métalliques)
+accent-amber: #fca311 (Ambre industriel / Or CGI ENIT)
+accent-hover: #ffb703 (Survol brillant ambre)
+accent-navy: #14213d (Bleu nuit profond ENIT)
+text-primary: #ffffff / #e5e5e5 (Texte principal haute lisibilité)
+text-secondary: #888888 (Texte secondaire & métadonnées)
+font: Inter (Google Fonts, déclinaisons 300 à 800)
+
+Styles Spécifiques UI:
+  - RoleBadge: Admin (Badge Ambre #fca311), Bureau (Badge Bleu #14213d), Membre Actif (Badge Vert #22c55e)
+  - Glass Panel: background var(--surface-card), border 1px solid var(--surface-border)
+  - Interactive Panels: transition border-color 200ms, hover: border #fca311, translateY(-2px)
+
+═══ SEED DATA & STORAGE BUCKETS ═══
+Buckets Supabase Storage:
+  1. brand-assets (public: true) — Stockage des logos du club et CVs membres
+  2. hero-carousel (public: true) — Images du carrousel de la page d'accueil
+  3. activity-images (public: true) — Photos et couvertures d'activités, visites et formations
+
+Paramètres du site par défaut (public.site_settings):
+  - site_logo: '/logo-cgi.jpg'
+
+Pôles Seeded (public.poles):
+  - Sponsoring & Partenariats (code: SPONSORING, color: #fca311)
+  - Événements & Logistique (code: EVENTS, color: #3b82f6)
+  - Media, Design & Communication (code: MEDIA, color: #ec4899)
+  - Academic & Professional Development (code: ACADEMIC, color: #10b981)
+  - Relations Humaines & Intégration (code: RH, color: #8b5cf6)
+
+═══ ENV VARIABLES ═══
+NEXT_PUBLIC_SUPABASE_URL=https://lndxakrjbnpjryzxxmcw.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=votre_cle_anon_publique
+SUPABASE_SERVICE_ROLE_KEY=votre_cle_service_role_secrete
+RESEND_API_KEY=re_votre_cle_resend
+
+═══ STARTUP ═══
+1. Cloner le repository et installer les dépendances:
+   git clone https://github.com/SeifElouaer/GI-ENIT.git
+   cd "GI Platform"
+   npm install
+
+2. Appliquer les scripts d'initialisation et migrations SQL dans l'éditeur Supabase:
+   - Executer supabase_setup.sql
+   - Exécuter les scripts du dossier supabase/migrations/ dans l'ordre chronologique
+
+3. Lancer le serveur de développement local:
+   npm run dev
+   Accès local: http://localhost:3000
+
+═══ BUILD ORDER (Hackathon & Production Priority) ═══
+1. Base de données Supabase: Tables, types enum, triggers PL/pgSQL, politiques RLS et storage buckets
+2. Authentification & Middleware: Setup Supabase Auth SSR (@supabase/ssr) et proxy.ts middleware
+3. System D'invitation Unique: Route /invite/[token] et générateur d'invitations admin
+4. Terminal Administration "Kinetic Forge" (/admin & /bureau): Tableau de bord, gestion des membres et passeport individuel
+5. Espace Membre (/membre): Navigation, profil membre, complétion de profil et système de calcul de points
+6. Module Projets Kanban: Tableau interactif drag-and-drop (@dnd-kit) et gestion des tâches par Pôle
+7. Visites Industrielles & Formations: Module de réservation avec gestion de jauge et liste d'attente automatique
+8. Hub Opportunités & Ressources: Publication des stages PFE/Été et drive documentaire
+9. Leaderboard & Annuaire: Podium dynamique, badges de rôle et moteur de recherche des membres
+10. Notifications & Integration Resend: Push notifications internes et envoi d'emails d'invitation
+11. Polish UI: Fluidité des animations (Framer Motion), thèmes Kinetic Forge, gestion des états empty/loading/error
