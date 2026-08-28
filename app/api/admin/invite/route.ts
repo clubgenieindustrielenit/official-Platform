@@ -1,31 +1,33 @@
 import { NextResponse } from "next/server";
-import { createClient as createServerSupabase } from "@/lib/supabase/server";
-import { createClient } from "@supabase/supabase-js";
+import { verifyCanManage } from "@/lib/supabase/adminAuth";
 import { Resend } from "resend";
+import { inviteSchema, parseBody } from "@/lib/validation/schemas";
 
 export async function POST(request: Request) {
   try {
-    const { email, role, duration, created_by } = await request.json();
-
-    if (!email || !role) {
-      return NextResponse.json(
-        { error: "Email et rôle sont requis." },
-        { status: 400 }
-      );
+    // ── 1. Auth & Role Guard ────────────────────────────────────────────────
+    // C-1 FIX: Route was completely unauthenticated. Any anonymous caller could
+    // create invitations with any role, including "admin". Now requires an
+    // authenticated session with admin or bureau role before proceeding.
+    const auth = await verifyCanManage(); // bureau or admin
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const { client, user } = auth;
 
-    // Use Server SSR client (preserves user session for RLS) unless serviceRoleKey is set
-    const supabase = serviceRoleKey
-      ? createClient(supabaseUrl, serviceRoleKey)
-      : await createServerSupabase();
+    // ── 2. Input Validation ─────────────────────────────────────────────────
+    // Use Zod schema with .strict() — unknown fields are rejected.
+    const parsed = await parseBody(request, inviteSchema);
+    if (!parsed.ok) {
+      return NextResponse.json({ error: parsed.error }, { status: parsed.status });
+    }
 
+    const { email, role, duration } = parsed.data;
     const cleanEmail = email.trim().toLowerCase();
 
-    // 1. Check if email is already a member in profiles
-    const { data: existingProfile } = await supabase
+    // ── 3. Business Logic Checks ────────────────────────────────────────────
+    const { data: existingProfile } = await client
       .from("profiles")
       .select("id")
       .eq("email", cleanEmail)
@@ -38,8 +40,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // 2. Check if active pending invitation exists
-    const { data: existingInvite } = await supabase
+    const { data: existingInvite } = await client
       .from("invitations")
       .select("id")
       .eq("email", cleanEmail)
@@ -54,14 +55,12 @@ export async function POST(request: Request) {
       );
     }
 
-    // 3. Calculate expiration date
+    // ── 4. Create invitation ────────────────────────────────────────────────
     const expiresAt = new Date();
-    const daysToAdd = Number(duration) || 7;
-    expiresAt.setDate(expiresAt.getDate() + daysToAdd);
+    expiresAt.setDate(expiresAt.getDate() + duration);
     const token = crypto.randomUUID();
 
-    // 4. Insert into invitations table
-    const { data: newInvite, error: insertError } = await supabase
+    const { data: newInvite, error: insertError } = await (client as any)
       .from("invitations")
       .insert({
         email: cleanEmail,
@@ -69,23 +68,35 @@ export async function POST(request: Request) {
         token,
         status: "pending",
         expires_at: expiresAt.toISOString(),
-        created_by: created_by || null,
+        // M-4 FIX: created_by is sourced from the verified server session,
+        // never from the client request body.
+        created_by: user.id,
       })
       .select()
       .single();
 
     if (insertError) {
+      // M-2 FIX: Never expose raw DB error messages to the client.
+      console.error("[invite] Insert error:", insertError);
       return NextResponse.json(
-        { error: insertError.message },
+        { error: "Erreur lors de la création de l'invitation." },
         { status: 500 }
       );
     }
 
-    // Construct full invitation link
-    const origin = request.headers.get("origin") || "http://localhost:3000";
-    const inviteLink = `${origin}/invite/${token}`;
+    // ── 5. Build invite link ────────────────────────────────────────────────
+    // M-4 FIX: Use the environment variable instead of trusting the
+    // attacker-controlled Origin header. A spoofed Origin header could redirect
+    // invitation emails to a phishing domain.
+    const appUrl =
+      process.env.NEXT_PUBLIC_APP_URL ||
+      process.env.VERCEL_URL && `https://${process.env.VERCEL_URL}` ||
+      "http://localhost:3000";
+    const inviteLink = `${appUrl}/invite/${token}`;
 
-    // 5. Send email via Resend
+    // ── 6. Send email via Resend ────────────────────────────────────────────
+    // Cost/Abuse FIX: Email is only sent AFTER auth is confirmed and the
+    // invitation is persisted. The auth gate above prevents anonymous abuse.
     let emailSent = false;
     let resendError = null;
     const resendApiKey = process.env.RESEND_API_KEY;
@@ -134,7 +145,7 @@ export async function POST(request: Request) {
                   </tr>
                   <tr>
                     <td style="color: #888888; font-size: 12px; line-height: 1.5; border-top: 1px solid #2a2c2c; padding-top: 20px;">
-                      <p style="margin: 0 0 8px 0;">Ce lien d'invitation est valable pendant <strong style="color: #ffffff;">${daysToAdd} jours</strong>.</p>
+                      <p style="margin: 0 0 8px 0;">Ce lien d'invitation est valable pendant <strong style="color: #ffffff;">${duration} jours</strong>.</p>
                       <p style="margin: 0; font-size: 11px; color: #666666;">Si le bouton ne fonctionne pas, copiez et collez cette URL dans votre navigateur :<br/>
                         <a href="${inviteLink}" style="color: #fca311; text-decoration: underline; word-break: break-all;">${inviteLink}</a>
                       </p>
@@ -154,10 +165,13 @@ export async function POST(request: Request) {
         if (!mailErr) {
           emailSent = true;
         } else {
-          resendError = mailErr.message;
+          // Log detailed error server-side only
+          console.error("[invite] Resend error:", mailErr);
+          resendError = "Échec de l'envoi de l'email.";
         }
-      } catch (err: any) {
-        resendError = err.message;
+      } catch (err: unknown) {
+        console.error("[invite] Resend exception:", err);
+        resendError = "Échec de l'envoi de l'email.";
       }
     }
 
@@ -168,9 +182,11 @@ export async function POST(request: Request) {
       emailSent,
       resendError,
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
+    // M-2 FIX: Log full error server-side, return generic message to client.
+    console.error("[invite] Unexpected error:", err);
     return NextResponse.json(
-      { error: err.message || "Erreur lors de la création de l'invitation." },
+      { error: "Erreur lors de la création de l'invitation." },
       { status: 500 }
     );
   }

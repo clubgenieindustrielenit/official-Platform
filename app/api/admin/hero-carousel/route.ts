@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient as createServerSupabase } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
+import { validateImageFile, MAX_CAROUSEL_SIZE_BYTES } from "@/lib/validation/fileUpload";
 
 // Helper to check if current logged in user is admin
 async function verifyAdmin() {
@@ -85,13 +86,16 @@ export async function POST(request: Request) {
       if (directUrl) {
         imageUrl = directUrl;
       } else if (file) {
-        // Upload to Supabase Storage
-        const fileExt = file.name.split(".").pop() || "jpg";
-        const fileName = `hero_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
-        const filePath = `carousel/${fileName}`;
+        // H-2 FIX: Validate file type via magic bytes before storage.
+        // Prevents SVG (stored XSS) and MIME-spoofed uploads.
+        const validation = await validateImageFile(file, MAX_CAROUSEL_SIZE_BYTES);
+        if (!validation.ok) {
+          return NextResponse.json({ error: validation.error }, { status: validation.status });
+        }
 
-        const arrayBuffer = await file.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
+        const { buffer, detectedMime, extension } = validation;
+        const fileName = `hero_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${extension}`;
+        const filePath = `carousel/${fileName}`;
 
         // Ensure bucket exists
         try {
@@ -103,7 +107,7 @@ export async function POST(request: Request) {
         const { error: uploadError } = await client.storage
           .from("hero-carousel")
           .upload(filePath, buffer, {
-            contentType: file.type || "image/jpeg",
+            contentType: detectedMime, // use validated MIME, not client-supplied
             upsert: true,
           });
 

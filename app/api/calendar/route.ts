@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { isBureauOrAdmin } from "@/lib/types/roles";
+import { calendarEventSchema, parseBody } from "@/lib/validation/schemas";
 
 export async function GET() {
   try {
@@ -10,13 +12,18 @@ export async function GET() {
       .order("date_start", { ascending: true });
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error("[calendar] GET error:", error);
+      return NextResponse.json(
+        { error: "Erreur lors de la récupération du calendrier." },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({ activities: activities || [] });
-  } catch (err: any) {
+  } catch (err: unknown) {
+    console.error("[calendar] GET unexpected error:", err);
     return NextResponse.json(
-      { error: err.message || "Erreur récupération calendrier" },
+      { error: "Erreur récupération calendrier" },
       { status: 500 }
     );
   }
@@ -33,25 +40,40 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { title, description, type, date_start, date_end, location, pole_id } = body;
+    // ── Role Guard ──────────────────────────────────────────────────────────
+    // M-3 FIX: Previously only checked `if (!user)`, meaning any authenticated
+    // member could create calendar events. Calendar creation is a bureau/admin
+    // operation — enforce that here.
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
 
-    if (!title || !title.trim()) {
-      return NextResponse.json({ error: "Le titre est requis" }, { status: 400 });
+    const role = profile?.role || user.user_metadata?.role || "membre_actif";
+
+    if (!isBureauOrAdmin(role)) {
+      return NextResponse.json(
+        { error: "Accès refusé. Réservé à l'administration et au bureau." },
+        { status: 403 }
+      );
     }
 
-    if (!date_start) {
-      return NextResponse.json({ error: "La date de début est requise" }, { status: 400 });
+    // ── Input Validation ────────────────────────────────────────────────────
+    const parsed = await parseBody(request, calendarEventSchema);
+    if (!parsed.ok) {
+      return NextResponse.json({ error: parsed.error }, { status: parsed.status });
     }
 
-    const activityType = ["event", "visit", "formation"].includes(type) ? type : "event";
+    const { title, description, type, date_start, date_end, location, pole_id } =
+      parsed.data;
 
     const { data: created, error } = await supabase
       .from("activities")
       .insert({
         title: title.trim(),
         description: description?.trim() || null,
-        type: activityType,
+        type,
         date_start,
         date_end: date_end || null,
         location: location?.trim() || null,
@@ -63,13 +85,18 @@ export async function POST(request: Request) {
       .single();
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error("[calendar] POST insert error:", error);
+      return NextResponse.json(
+        { error: "Erreur lors de la création de l'activité." },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({ success: true, activity: created });
-  } catch (err: any) {
+  } catch (err: unknown) {
+    console.error("[calendar] POST unexpected error:", err);
     return NextResponse.json(
-      { error: err.message || "Erreur lors de la création de l'activité" },
+      { error: "Erreur lors de la création de l'activité" },
       { status: 500 }
     );
   }
@@ -86,6 +113,23 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
     }
 
+    // ── Role Guard ──────────────────────────────────────────────────────────
+    // M-3 FIX: Same issue — any authenticated user could delete events.
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    const role = profile?.role || user.user_metadata?.role || "membre_actif";
+
+    if (!isBureauOrAdmin(role)) {
+      return NextResponse.json(
+        { error: "Accès refusé. Réservé à l'administration et au bureau." },
+        { status: 403 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
 
@@ -93,16 +137,36 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "ID requis" }, { status: 400 });
     }
 
+    // ── IDOR Check ──────────────────────────────────────────────────────────
+    // Verify the activity exists before attempting deletion.
+    const { data: existing } = await supabase
+      .from("activities")
+      .select("id")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (!existing) {
+      return NextResponse.json(
+        { error: "Activité introuvable." },
+        { status: 404 }
+      );
+    }
+
     const { error } = await supabase.from("activities").delete().eq("id", id);
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error("[calendar] DELETE error:", error);
+      return NextResponse.json(
+        { error: "Erreur lors de la suppression." },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({ success: true });
-  } catch (err: any) {
+  } catch (err: unknown) {
+    console.error("[calendar] DELETE unexpected error:", err);
     return NextResponse.json(
-      { error: err.message || "Erreur lors de la suppression" },
+      { error: "Erreur lors de la suppression" },
       { status: 500 }
     );
   }

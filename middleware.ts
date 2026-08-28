@@ -1,7 +1,10 @@
 import { type NextRequest } from 'next/server'
 import { updateSession } from '@/lib/supabase/proxy'
 
-export async function proxy(request: NextRequest) {
+// NOTE: Next.js requires the export to be named exactly `middleware`.
+// The previous name `proxy` caused this file to be silently ignored,
+// meaning all route protection (login redirect, role checks) was never applied.
+export async function middleware(request: NextRequest) {
   return await updateSession(request)
 }
 
@@ -12,7 +15,6 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * Feel free to modify this pattern to include more paths.
      */
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],

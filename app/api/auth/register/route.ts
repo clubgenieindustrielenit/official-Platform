@@ -1,47 +1,78 @@
 import { NextResponse } from "next/server";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { verifyCanManage } from "@/lib/supabase/adminAuth";
+import { registerSchema, parseBody } from "@/lib/validation/schemas";
 
 export async function POST(req: Request) {
   try {
-    const { email, password, firstName, lastName, role, statutMembre, classe, phone } = await req.json();
-
-    if (!email || !password) {
-      return NextResponse.json({ error: "Email et mot de passe requis." }, { status: 400 });
+    // ── 1. Auth Guard ───────────────────────────────────────────────────────
+    // C-3 FIX: This route was completely unauthenticated. It accepted a `role`
+    // field from the client body and wrote it directly to the profiles table,
+    // allowing anyone to create privileged accounts. Now requires admin session.
+    const auth = await verifyCanManage(true); // admin only
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
 
+    // ── 2. Input Validation ─────────────────────────────────────────────────
+    const parsed = await parseBody(req, registerSchema);
+    if (!parsed.ok) {
+      return NextResponse.json({ error: parsed.error }, { status: parsed.status });
+    }
+
+    const { email, password, firstName, lastName, role, statutMembre, classe, phone } =
+      parsed.data;
+
+    // ── 3. Service Role Guard ───────────────────────────────────────────────
+    // C-2 FIX: Previously fell back to anon key silently. Fail fast instead.
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!serviceKey) {
+      console.error("[register] SUPABASE_SERVICE_ROLE_KEY is not set.");
+      return NextResponse.json(
+        { error: "Configuration serveur manquante." },
+        { status: 503 }
+      );
+    }
 
     const adminClient = createSupabaseClient(supabaseUrl, serviceKey, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
-    // 1. Create or get user in Supabase Auth
-    const { data: userData, error: createError } = await adminClient.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: {
-        first_name: firstName || email.split("@")[0],
-        last_name: lastName || "",
-        role: role || "membre_actif",
-      },
-    });
+    // ── 4. Create or update Supabase Auth user ──────────────────────────────
+    const { data: userData, error: createError } =
+      await adminClient.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: {
+          first_name: firstName || email.split("@")[0],
+          last_name: lastName || "",
+          role: role || "membre_actif",
+        },
+      });
 
     let userId: string;
 
     if (createError) {
-      // If user already exists, update password and metadata
-      if (createError.message.includes("already registered") || createError.message.includes("already been registered")) {
-        // List users to find ID
+      if (
+        createError.message.includes("already registered") ||
+        createError.message.includes("already been registered")
+      ) {
         const { data: usersList } = await adminClient.auth.admin.listUsers();
-        const existing = usersList?.users?.find((u) => u.email?.toLowerCase() === email.toLowerCase());
+        const existing = usersList?.users?.find(
+          (u) => u.email?.toLowerCase() === email.toLowerCase()
+        );
         if (!existing) {
-          throw new Error(createError.message);
+          console.error("[register] Existing user not found after conflict:", createError);
+          return NextResponse.json(
+            { error: "Erreur lors de la création du compte." },
+            { status: 400 }
+          );
         }
         userId = existing.id;
 
-        // Update password & metadata
         await adminClient.auth.admin.updateUserById(userId, {
           password,
           email_confirm: true,
@@ -52,14 +83,25 @@ export async function POST(req: Request) {
           },
         });
       } else {
-        throw createError;
+        console.error("[register] createUser error:", createError);
+        return NextResponse.json(
+          { error: "Erreur lors de la création du compte." },
+          { status: 400 }
+        );
       }
     } else {
       userId = userData.user.id;
     }
 
-    // 2. Upsert profile row in public.profiles
-    const assignedRole = role === "admin" ? "admin" : role === "membre_bureau" ? "membre_bureau" : "membre_actif";
+    // ── 5. Upsert profile ───────────────────────────────────────────────────
+    // Role is validated via Zod enum — only "membre_actif", "membre_bureau",
+    // "admin" are accepted. The server-side enum is the single source of truth.
+    const assignedRole =
+      role === "admin"
+        ? "admin"
+        : role === "membre_bureau"
+        ? "membre_bureau"
+        : "membre_actif";
 
     const { error: profileError } = await adminClient.from("profiles").upsert(
       {
@@ -80,7 +122,7 @@ export async function POST(req: Request) {
     );
 
     if (profileError) {
-      console.error("Profile upsert error:", profileError);
+      console.error("[register] Profile upsert error:", profileError);
     }
 
     return NextResponse.json({
@@ -90,8 +132,11 @@ export async function POST(req: Request) {
       role: assignedRole,
       message: "Compte créé et configuré avec succès !",
     });
-  } catch (err: any) {
-    console.error("Registration error:", err);
-    return NextResponse.json({ error: err.message || "Erreur lors de l'enregistrement." }, { status: 500 });
+  } catch (err: unknown) {
+    console.error("[register] Unexpected error:", err);
+    return NextResponse.json(
+      { error: "Erreur lors de l'enregistrement." },
+      { status: 500 }
+    );
   }
 }

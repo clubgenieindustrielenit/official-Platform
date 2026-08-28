@@ -4,13 +4,16 @@ import { createClient as createServerSupabase } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
 import fs from "fs";
 import path from "path";
+import { validateImageFile, MAX_LOGO_SIZE_BYTES } from "@/lib/validation/fileUpload";
 
 const BUCKET_NAME = "brand-assets";
 
 // Helper to save logo locally so it works 100% even if Supabase table is not created yet
-function saveLocalLogo(buffer: Buffer, mimeType: string) {
+// H-2 FIX: ext is now derived from the validated magic-byte MIME, not the
+// client-supplied file.type, so SVG files cannot be saved as 'svg' even if
+// the caller claims a different MIME type.
+function saveLocalLogo(buffer: Buffer, ext: string) {
   try {
-    const ext = mimeType.includes("png") ? "png" : mimeType.includes("svg") ? "svg" : "jpg";
     const publicDir = path.join(process.cwd(), "public");
     if (!fs.existsSync(publicDir)) {
       fs.mkdirSync(publicDir, { recursive: true });
@@ -18,6 +21,13 @@ function saveLocalLogo(buffer: Buffer, mimeType: string) {
     const logoFileName = `custom-site-logo.${ext}`;
     const logoFilePath = path.join(publicDir, logoFileName);
     fs.writeFileSync(logoFilePath, buffer);
+    // Remove any stale logo files with different extensions
+    for (const oldExt of ["png", "jpg", "webp", "gif"]) {
+      if (oldExt !== ext) {
+        const oldPath = path.join(publicDir, `custom-site-logo.${oldExt}`);
+        if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+      }
+    }
 
     const settingsPath = path.join(publicDir, "site-settings.json");
     const logoUrl = `/${logoFileName}?v=${Date.now()}`;
@@ -123,24 +133,28 @@ export async function POST(request: Request) {
     const file = formData.get("file") as File;
     if (!file) return NextResponse.json({ error: "No file provided" }, { status: 400 });
 
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    const mimeType = file.type || "image/png";
+    // H-2 FIX: Validate file type via magic bytes before any storage operation.
+    // This prevents SVG uploads (stored XSS) and MIME-spoofed files.
+    const validation = await validateImageFile(file, MAX_LOGO_SIZE_BYTES);
+    if (!validation.ok) {
+      return NextResponse.json({ error: validation.error }, { status: validation.status });
+    }
+
+    const { buffer, detectedMime, extension } = validation;
 
     // Always save locally first to guarantee 100% success
-    const localLogoUrl = saveLocalLogo(buffer, mimeType);
-    let finalLogoUrl = localLogoUrl || `data:${mimeType};base64,${buffer.toString("base64")}`;
+    const localLogoUrl = saveLocalLogo(buffer, extension);
+    let finalLogoUrl = localLogoUrl || `data:${detectedMime};base64,${buffer.toString("base64")}`;
 
     // Attempt upload to Supabase Storage if bucket exists
     try {
       await client.storage.createBucket(BUCKET_NAME, { public: true }).catch(() => {});
-      const fileExt = file.name.split(".").pop() || "png";
-      const fileName = `logo_${Date.now()}.${fileExt}`;
+      const fileName = `logo_${Date.now()}.${extension}`;
 
       const { data: uploadData, error: uploadError } = await client.storage
         .from(BUCKET_NAME)
         .upload(fileName, buffer, {
-          contentType: mimeType,
+          contentType: detectedMime, // use validated MIME, not client-supplied
           upsert: true,
         });
 

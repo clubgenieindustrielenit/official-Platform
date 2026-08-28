@@ -1,34 +1,41 @@
 import { NextResponse } from "next/server";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { acceptInviteSchema, parseBody } from "@/lib/validation/schemas";
 
 export async function POST(req: Request) {
   try {
-    const { token, password, firstName, lastName } = await req.json();
-
-    if (!token || !password) {
-      return NextResponse.json(
-        { error: "Le jeton d'invitation et le mot de passe sont obligatoires." },
-        { status: 400 }
-      );
+    // ── 1. Input Validation ─────────────────────────────────────────────────
+    const parsed = await parseBody(req, acceptInviteSchema);
+    if (!parsed.ok) {
+      return NextResponse.json({ error: parsed.error }, { status: parsed.status });
     }
 
-    if (password.length < 6) {
-      return NextResponse.json(
-        { error: "Le mot de passe doit contenir au moins 6 caractères." },
-        { status: 400 }
-      );
-    }
+    const { token, password, firstName, lastName } = parsed.data;
+    // Password minimum is now 8 chars, enforced by the Zod schema above.
 
+    // ── 2. Service Role Guard ───────────────────────────────────────────────
+    // C-2 FIX: Previously, if SUPABASE_SERVICE_ROLE_KEY was unset, the code
+    // silently fell back to the anon key and then attempted admin Auth API
+    // calls (createUser, listUsers, updateUserById). These operations require
+    // the service role — using the anon key would fail at runtime and could
+    // expose internal error details. We now fail fast with a clear server-side
+    // error rather than silently degrading to an unprivileged key.
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const serviceKey =
-      process.env.SUPABASE_SERVICE_ROLE_KEY ||
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!serviceKey) {
+      console.error("[accept-invite] SUPABASE_SERVICE_ROLE_KEY is not set.");
+      return NextResponse.json(
+        { error: "Configuration serveur manquante. Contactez un administrateur." },
+        { status: 503 }
+      );
+    }
 
     const adminClient = createSupabaseClient(supabaseUrl, serviceKey, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
-    // 1. Verify invitation token
+    // ── 3. Verify invitation token ──────────────────────────────────────────
     const { data: invitation, error: inviteErr } = await adminClient
       .from("invitations")
       .select("*")
@@ -61,7 +68,7 @@ export async function POST(req: Request) {
     const cleanEmail = invitation.email.trim().toLowerCase();
     const role = invitation.role || "membre_actif";
 
-    // 2. Create or Update user in Supabase Auth
+    // ── 4. Create or update Supabase Auth user ──────────────────────────────
     let userId: string;
 
     const { data: userData, error: createError } =
@@ -81,22 +88,21 @@ export async function POST(req: Request) {
         createError.message.includes("already registered") ||
         createError.message.includes("already been registered")
       ) {
-        // Find existing user ID
         const { data: usersList } = await adminClient.auth.admin.listUsers();
         const existing = usersList?.users?.find(
           (u) => u.email?.toLowerCase() === cleanEmail
         );
 
         if (!existing) {
+          console.error("[accept-invite] Existing user not found:", createError);
           return NextResponse.json(
-            { error: createError.message },
+            { error: "Erreur lors de la création du compte." },
             { status: 400 }
           );
         }
 
         userId = existing.id;
 
-        // Update password and confirm email
         const { error: updateAuthErr } =
           await adminClient.auth.admin.updateUserById(userId, {
             password,
@@ -109,14 +115,16 @@ export async function POST(req: Request) {
           });
 
         if (updateAuthErr) {
+          console.error("[accept-invite] updateUserById error:", updateAuthErr);
           return NextResponse.json(
-            { error: updateAuthErr.message },
+            { error: "Erreur lors de la mise à jour du compte." },
             { status: 500 }
           );
         }
       } else {
+        console.error("[accept-invite] createUser error:", createError);
         return NextResponse.json(
-          { error: createError.message },
+          { error: "Erreur lors de la création du compte." },
           { status: 400 }
         );
       }
@@ -124,7 +132,7 @@ export async function POST(req: Request) {
       userId = userData.user.id;
     }
 
-    // 3. Upsert profile record
+    // ── 5. Upsert profile record ────────────────────────────────────────────
     const { error: profileError } = await adminClient.from("profiles").upsert(
       {
         id: userId,
@@ -137,10 +145,11 @@ export async function POST(req: Request) {
     );
 
     if (profileError) {
-      console.error("Profile upsert error:", profileError);
+      // Non-fatal — log but continue; user can still log in.
+      console.error("[accept-invite] Profile upsert error:", profileError);
     }
 
-    // 4. Mark invitation as accepted
+    // ── 6. Mark invitation as accepted ──────────────────────────────────────
     await adminClient
       .from("invitations")
       .update({
@@ -156,10 +165,11 @@ export async function POST(req: Request) {
       role,
       message: "Compte activé avec succès !",
     });
-  } catch (err: any) {
-    console.error("Accept invite error:", err);
+  } catch (err: unknown) {
+    // M-2 FIX: Log full error server-side, never expose internals to client.
+    console.error("[accept-invite] Unexpected error:", err);
     return NextResponse.json(
-      { error: err.message || "Erreur interne du serveur." },
+      { error: "Erreur interne du serveur." },
       { status: 500 }
     );
   }
