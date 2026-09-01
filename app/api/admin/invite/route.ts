@@ -165,14 +165,15 @@ export async function POST(request: Request) {
         if (!mailErr) {
           emailSent = true;
         } else {
-          // Log detailed error server-side only
           console.error("[invite] Resend error:", mailErr);
-          resendError = "Échec de l'envoi de l'email.";
+          resendError = mailErr.message || JSON.stringify(mailErr);
         }
-      } catch (err: unknown) {
+      } catch (err: any) {
         console.error("[invite] Resend exception:", err);
-        resendError = "Échec de l'envoi de l'email.";
+        resendError = err?.message || "Échec de l'envoi de l'email.";
       }
+    } else {
+      resendError = "RESEND_API_KEY non configurée sur le serveur.";
     }
 
     return NextResponse.json({
