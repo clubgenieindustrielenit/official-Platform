@@ -145,8 +145,19 @@ export async function POST(req: Request) {
     );
 
     if (profileError) {
-      // Non-fatal — log but continue; user can still log in.
       console.error("[accept-invite] Profile upsert error:", profileError);
+    }
+
+    // Force-update the role explicitly — the DB trigger (handle_new_user) hardcodes
+    // 'member' as default role on INSERT, so we must override it here with the
+    // invited role (e.g. 'membre_bureau') via a separate UPDATE call.
+    const { error: roleErr } = await adminClient
+      .from("profiles")
+      .update({ role })
+      .eq("id", userId);
+
+    if (roleErr) {
+      console.error("[accept-invite] Role update error:", roleErr);
     }
 
     // ── 6. Mark invitation as accepted ──────────────────────────────────────
