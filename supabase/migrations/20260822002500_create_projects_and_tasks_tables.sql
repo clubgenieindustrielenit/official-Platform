@@ -63,7 +63,7 @@ CREATE POLICY "projects_select_all" ON public.projects FOR SELECT USING (true);
 DROP POLICY IF EXISTS "projects_all_admin_or_lead" ON public.projects;
 CREATE POLICY "projects_all_admin_or_lead" ON public.projects FOR ALL
   USING (
-    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role IN ('admin', 'membre_bureau', 'bureau'))
+    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role::text IN ('admin', 'membre_bureau', 'bureau'))
     OR lead_id = auth.uid()
   );
 
@@ -73,7 +73,7 @@ CREATE POLICY "project_members_select_all" ON public.project_members FOR SELECT 
 DROP POLICY IF EXISTS "project_members_all_admin_or_lead" ON public.project_members;
 CREATE POLICY "project_members_all_admin_or_lead" ON public.project_members FOR ALL
   USING (
-    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role IN ('admin', 'membre_bureau', 'bureau'))
+    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role::text IN ('admin', 'membre_bureau', 'bureau'))
     OR EXISTS (SELECT 1 FROM public.projects p WHERE p.id = project_members.project_id AND p.lead_id = auth.uid())
     OR user_id = auth.uid()
   );
@@ -84,7 +84,7 @@ CREATE POLICY "project_tasks_select_all" ON public.project_tasks FOR SELECT USIN
 DROP POLICY IF EXISTS "project_tasks_all_members" ON public.project_tasks;
 CREATE POLICY "project_tasks_all_members" ON public.project_tasks FOR ALL
   USING (
-    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role IN ('admin', 'membre_bureau', 'bureau'))
+    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role::text IN ('admin', 'membre_bureau', 'bureau'))
     OR EXISTS (SELECT 1 FROM public.projects p WHERE p.id = project_tasks.project_id AND p.lead_id = auth.uid())
     OR EXISTS (SELECT 1 FROM public.project_members pm WHERE pm.project_id = project_tasks.project_id AND pm.user_id = auth.uid())
   );

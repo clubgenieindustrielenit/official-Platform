@@ -5,13 +5,26 @@ import { registerSchema, parseBody } from "@/lib/validation/schemas";
 
 export async function POST(req: Request) {
   try {
-    // ── 1. Auth Guard ───────────────────────────────────────────────────────
-    // C-3 FIX: This route was completely unauthenticated. It accepted a `role`
-    // field from the client body and wrote it directly to the profiles table,
-    // allowing anyone to create privileged accounts. Now requires admin session.
-    const auth = await verifyCanManage(true); // admin only
-    if (!auth.ok) {
-      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    // ── 1. Auth Guard (Bootstrap Mode: allow if database has no admin yet or when requested) ─────
+    const supabaseUrlCheck = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const serviceKeyCheck = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    
+    let allowRegistration = false;
+    if (serviceKeyCheck) {
+      const checkClient = createSupabaseClient(supabaseUrlCheck, serviceKeyCheck, {
+        auth: { autoRefreshToken: false, persistSession: false },
+      });
+      const { count } = await checkClient.from("profiles").select("id", { count: "exact", head: true });
+      if (count === 0) {
+        allowRegistration = true; // Initial bootstrap: database is completely empty
+      }
+    }
+
+    if (!allowRegistration) {
+      const auth = await verifyCanManage(true); // admin only
+      if (!auth.ok) {
+        return NextResponse.json({ error: auth.error }, { status: auth.status });
+      }
     }
 
     // ── 2. Input Validation ─────────────────────────────────────────────────

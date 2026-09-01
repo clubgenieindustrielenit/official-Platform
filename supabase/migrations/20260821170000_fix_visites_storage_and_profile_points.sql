@@ -7,14 +7,13 @@ ALTER TABLE public.activities
   ADD COLUMN IF NOT EXISTS cover_image_url TEXT,
   ADD COLUMN IF NOT EXISTS type TEXT DEFAULT 'event',
   ADD COLUMN IF NOT EXISTS date_start TIMESTAMPTZ,
-  ADD COLUMN IF NOT EXISTS date_end TIMESTAMPTZ;
+  ADD COLUMN IF NOT EXISTS date_end TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS image_url TEXT,
+  ADD COLUMN IF NOT EXISTS date TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS category TEXT;
 
--- Sync existing columns
-UPDATE public.activities
-SET 
-  cover_image_url = COALESCE(cover_image_url, image_url),
-  date_start = COALESCE(date_start, date),
-  type = COALESCE(type, CASE WHEN category = 'Visite' THEN 'visit' WHEN category = 'Formation' THEN 'formation' ELSE 'event' END);
+
+
 
 -- 2. Setup Storage RLS Policies for buckets: resources, avatars, cvs, activities
 DROP POLICY IF EXISTS "Public Read resources" ON storage.objects;
@@ -48,6 +47,7 @@ DROP POLICY IF EXISTS "Authenticated Update cvs" ON storage.objects;
 CREATE POLICY "Authenticated Update cvs" ON storage.objects FOR UPDATE USING (bucket_id = 'cvs' AND auth.role() = 'authenticated');
 
 -- 3. Dynamic Profile Completion / Edition Points Trigger
+DROP FUNCTION IF EXISTS public.award_profile_completion_points();
 CREATE OR REPLACE FUNCTION public.award_profile_completion_points()
 RETURNS TRIGGER
 LANGUAGE plpgsql

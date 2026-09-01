@@ -31,6 +31,7 @@ DROP POLICY IF EXISTS "event_registrations_delete_own_or_admin" ON public.event_
 CREATE POLICY "event_registrations_delete_own_or_admin" ON public.event_registrations FOR DELETE USING (auth.uid() = user_id OR auth.role() = 'authenticated');
 
 -- 2. register_to_activity function
+DROP FUNCTION IF EXISTS public.register_to_activity(uuid);
 CREATE OR REPLACE FUNCTION public.register_to_activity(p_activity_id UUID)
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -106,6 +107,7 @@ END;
 $$;
 
 -- 3. cancel_registration function with auto promotion
+DROP FUNCTION IF EXISTS public.cancel_registration(uuid);
 CREATE OR REPLACE FUNCTION public.cancel_registration(p_registration_id UUID)
 RETURNS JSONB
 LANGUAGE plpgsql

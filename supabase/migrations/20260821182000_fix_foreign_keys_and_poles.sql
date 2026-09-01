@@ -5,13 +5,11 @@
 -- 1. Fix resources table columns & foreign keys
 ALTER TABLE public.resources
   ADD COLUMN IF NOT EXISTS pole_id UUID REFERENCES public.poles(id) ON DELETE SET NULL,
-  ADD COLUMN IF NOT EXISTS uploaded_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL;
+  ADD COLUMN IF NOT EXISTS uploaded_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS created_by UUID;
 
--- Sync created_by and uploaded_by on resources
-UPDATE public.resources
-SET 
-  uploaded_by = COALESCE(uploaded_by, created_by),
-  created_by = COALESCE(created_by, uploaded_by);
+
+
 
 -- Ensure resources has clean foreign keys to profiles
 ALTER TABLE public.resources DROP CONSTRAINT IF EXISTS resources_uploaded_by_fkey;

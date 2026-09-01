@@ -171,15 +171,23 @@ export default function Navbar() {
                 </Link>
               </>
             ) : (
-              <Link
-                href="/login"
-                className="group relative inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-custom-amber text-custom-black font-bold text-xs tracking-wider uppercase overflow-hidden transition-all duration-300 hover:scale-[1.03] active:scale-[0.98] shadow-[0_0_20px_rgba(252,163,17,0.15)] hover:shadow-[0_0_25px_rgba(252,163,17,0.35)]"
-              >
-                <span className="relative z-10 flex items-center gap-2">
-                  <span>{t("nav.portal_login", "Connexion Portal")}</span>
-                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-                </span>
-              </Link>
+              <div className="flex items-center gap-2">
+                <Link
+                  href="/signup"
+                  className="px-4 py-2.5 rounded-xl border border-custom-amber/40 hover:border-custom-amber text-custom-white hover:text-custom-amber font-bold text-xs tracking-wider uppercase transition-all duration-300 hover:scale-[1.03] active:scale-[0.98]"
+                >
+                  <span>{t("nav.signup", "S'inscrire")}</span>
+                </Link>
+                <Link
+                  href="/login"
+                  className="group relative inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-custom-amber text-custom-black font-bold text-xs tracking-wider uppercase overflow-hidden transition-all duration-300 hover:scale-[1.03] active:scale-[0.98] shadow-[0_0_20px_rgba(252,163,17,0.15)] hover:shadow-[0_0_25px_rgba(252,163,17,0.35)]"
+                >
+                  <span className="relative z-10 flex items-center gap-2">
+                    <span>{t("nav.portal_login", "Connexion Portal")}</span>
+                    <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                  </span>
+                </Link>
+              </div>
             )}
           </motion.div>
 
@@ -240,14 +248,23 @@ export default function Navbar() {
                   </button>
                 </>
               ) : (
-                <Link
-                  href="/login"
-                  onClick={() => setIsOpen(false)}
-                  className="w-full inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl bg-custom-amber text-custom-black font-bold text-sm tracking-wider uppercase hover:bg-custom-amber/90 transition-colors mt-4"
-                >
-                  <span>{t("nav.portal_login", "Connexion Portal")}</span>
-                  <ArrowRight className="w-4 h-4" />
-                </Link>
+                <div className="flex flex-col gap-2 mt-4">
+                  <Link
+                    href="/signup"
+                    onClick={() => setIsOpen(false)}
+                    className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl border border-custom-amber/40 text-custom-white font-bold text-sm tracking-wider uppercase hover:border-custom-amber transition-colors"
+                  >
+                    <span>{t("nav.signup", "S'inscrire")}</span>
+                  </Link>
+                  <Link
+                    href="/login"
+                    onClick={() => setIsOpen(false)}
+                    className="w-full inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl bg-custom-amber text-custom-black font-bold text-sm tracking-wider uppercase hover:bg-custom-amber/90 transition-colors"
+                  >
+                    <span>{t("nav.portal_login", "Connexion Portal")}</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </Link>
+                </div>
               )}
             </div>
           </motion.div>

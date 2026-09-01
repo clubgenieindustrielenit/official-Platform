@@ -10,6 +10,11 @@ SET pole_ids = ARRAY[pole_id]
 WHERE pole_id IS NOT NULL 
   AND (pole_ids IS NULL OR cardinality(pole_ids) = 0);
 
+-- Ensure color and icon columns exist on public.poles
+ALTER TABLE public.poles
+  ADD COLUMN IF NOT EXISTS color TEXT,
+  ADD COLUMN IF NOT EXISTS icon TEXT;
+
 -- 3. Harmonize the 4 official poles in public.poles
 -- Update existing poles or insert them if missing
 

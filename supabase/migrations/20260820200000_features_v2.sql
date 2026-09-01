@@ -63,6 +63,7 @@ CREATE POLICY "points_log_deny_client_insert" ON public.points_log
   WITH CHECK (false);
 
 -- Trigger idempotent pour l'attribution des points lors de la complétion du profil
+DROP FUNCTION IF EXISTS public.award_profile_completion_points();
 CREATE OR REPLACE FUNCTION public.award_profile_completion_points()
 RETURNS TRIGGER
 LANGUAGE plpgsql

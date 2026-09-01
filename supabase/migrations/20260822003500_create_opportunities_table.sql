@@ -25,6 +25,6 @@ CREATE POLICY "opportunities_select_active" ON public.opportunities FOR SELECT U
 DROP POLICY IF EXISTS "opportunities_all_admin" ON public.opportunities;
 CREATE POLICY "opportunities_all_admin" ON public.opportunities FOR ALL
   USING (
-    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role IN ('admin', 'membre_bureau', 'bureau'))
+    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role::text IN ('admin', 'membre_bureau', 'bureau'))
     OR created_by = auth.uid()
   );

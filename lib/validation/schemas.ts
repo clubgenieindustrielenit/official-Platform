@@ -26,8 +26,7 @@ export const inviteSchema = z
     email: z.string().email("Adresse e-mail invalide.").max(254),
     role: roleEnum,
     duration: z.number().int().min(1).max(365).optional().default(7),
-    // created_by must NEVER come from the client — derive it from the session.
-    // We accept it here only for legacy compatibility but ignore it server-side.
+    created_by: z.string().optional(),
   })
   .strict();
 

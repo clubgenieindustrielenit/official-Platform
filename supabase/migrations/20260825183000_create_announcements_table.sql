@@ -33,7 +33,7 @@ WITH CHECK (
   EXISTS (
     SELECT 1 FROM public.profiles
     WHERE id = auth.uid()
-    AND role IN ('admin', 'membre_bureau', 'bureau')
+    AND role::text IN ('admin', 'membre_bureau', 'bureau')
   )
 );
 
@@ -46,6 +46,6 @@ USING (
   EXISTS (
     SELECT 1 FROM public.profiles
     WHERE id = auth.uid()
-    AND role IN ('admin', 'membre_bureau', 'bureau')
+    AND role::text IN ('admin', 'membre_bureau', 'bureau')
   )
 );

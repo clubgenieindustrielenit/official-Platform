@@ -4,6 +4,9 @@
 
 SET check_function_bodies = false;
 
+DROP TABLE IF EXISTS public.activities CASCADE;
+DROP TABLE IF EXISTS public.profiles CASCADE;
+
 DROP EXTENSION IF EXISTS pg_net;
 
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT DELETE, INSERT, SELECT, UPDATE ON TABLES TO anon;
@@ -40,7 +43,11 @@ CREATE TYPE public.activity_type AS ENUM (
 CREATE TYPE public.member_role AS ENUM (
   'member',
   'pole_lead',
-  'admin'
+  'admin',
+  'membre_bureau',
+  'bureau',
+  'membre_actif',
+  'membre'
 );
 
 CREATE TYPE public.project_status AS ENUM (

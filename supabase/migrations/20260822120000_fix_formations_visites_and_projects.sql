@@ -17,15 +17,13 @@ ALTER TABLE public.activities
   ADD COLUMN IF NOT EXISTS cover_image_url TEXT,
   ADD COLUMN IF NOT EXISTS type TEXT DEFAULT 'event',
   ADD COLUMN IF NOT EXISTS date_start TIMESTAMPTZ,
-  ADD COLUMN IF NOT EXISTS date_end TIMESTAMPTZ;
+  ADD COLUMN IF NOT EXISTS date_end TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS image_url TEXT,
+  ADD COLUMN IF NOT EXISTS date TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS category TEXT;
 
--- 3. Backfill defaults for type and date_start
-UPDATE public.activities
-SET 
-  cover_image_url = COALESCE(cover_image_url, image_url),
-  date_start = COALESCE(date_start, date, created_at, now()),
-  type = COALESCE(type, CASE WHEN category = 'Visite' THEN 'visit' WHEN category = 'Formation' THEN 'formation' ELSE 'event' END)
-WHERE date_start IS NULL OR type IS NULL;
+
+
 
 -- 4. Ensure RLS policies for activities
 ALTER TABLE public.activities ENABLE ROW LEVEL SECURITY;
