@@ -107,7 +107,7 @@ export async function POST(request: Request) {
         const roleLabel =
           role === "membre_bureau" ? "Membre du Bureau" : "Membre Actif";
 
-        const fromEmail = process.env.RESEND_FROM_EMAIL || "Club Génie Industriel ENIT <onboarding@resend.dev>";
+        const fromEmail = process.env.RESEND_FROM_EMAIL || "Club Génie Industriel ENIT <invites@mail.clubgenieindustrielenit.org>";
 
         const { error: mailErr } = await resend.emails.send({
           from: fromEmail,
