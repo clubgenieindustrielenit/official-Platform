@@ -541,12 +541,12 @@ export default function AdminDashboardPage() {
       }
 
       if (result.emailSent) {
-        addToast("success", `Invitation envoyée par email à ${inviteEmail}`);
+        addToast("success", `✉️ Invitation envoyée par email à ${inviteEmail}`);
+      } else if (result.resendError) {
+        // Invitation saved in DB but email failed — show the real error
+        addToast("info", `Invitation créée mais email non envoyé: ${result.resendError} — Lien: ${result.inviteLink}`);
       } else {
-        addToast(
-          "success",
-          `Invitation créée ! Lien : ${result.inviteLink}`
-        );
+        addToast("success", `Invitation créée ! Lien: ${result.inviteLink}`);
       }
 
       setInviteEmail("");
