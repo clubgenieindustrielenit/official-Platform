@@ -4,6 +4,8 @@ import { createClient } from "@supabase/supabase-js";
 import { compressImageBuffer } from "@/lib/utils/serverImageCompressor";
 import { validateImageFile } from "@/lib/validation/fileUpload";
 
+export const dynamic = "force-dynamic";
+
 export interface PartnerRecord {
   id: string;
   name: string;
@@ -55,13 +57,13 @@ async function verifyAdmin() {
     .eq("id", user.id)
     .maybeSingle();
 
-  const role = profile?.role || user.user_metadata?.role;
+  const role = profile?.role || user.user_metadata?.role || "";
 
-  if (role !== "admin") {
+  if (role !== "admin" && role !== "bureau" && role !== "membre_bureau") {
     return {
       isAdmin: false,
       user,
-      error: "Accès refusé. Privilèges Administrateur requis.",
+      error: "Accès refusé. Privilèges requis.",
       status: 403,
     };
   }

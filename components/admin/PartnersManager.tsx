@@ -62,18 +62,55 @@ export default function PartnersManager({ onNotify }: PartnersManagerProps) {
     if (onNotify) onNotify(type, message);
   };
 
+  const safeParseResponse = async (res: Response) => {
+    try {
+      const text = await res.text();
+      return JSON.parse(text);
+    } catch (_) {
+      return { error: `Erreur inattendue (${res.status})` };
+    }
+  };
+
   const fetchPartners = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/partners");
-      const data = await res.json();
-      if (res.ok && data.partners) {
+      let res = await fetch("/api/admin/partners");
+      let data: any = null;
+
+      if (res.ok) {
+        data = await safeParseResponse(res);
+      }
+
+      if (data && Array.isArray(data.partners) && data.partners.length > 0) {
         setPartners(data.partners);
-      } else {
-        notify("error", data.error || "Erreur de chargement des partenaires");
+        return;
+      }
+
+      // Graceful fallback to public partners endpoint
+      const pubRes = await fetch("/api/partners");
+      if (pubRes.ok) {
+        const pubData = await safeParseResponse(pubRes);
+        if (pubData && Array.isArray(pubData.partners) && pubData.partners.length > 0) {
+          setPartners(pubData.partners);
+          return;
+        }
+      }
+
+      if (data?.error) {
+        notify("error", data.error);
       }
     } catch (err: any) {
-      notify("error", err.message || "Erreur de connexion");
+      try {
+        const pubRes = await fetch("/api/partners");
+        if (pubRes.ok) {
+          const pubData = await safeParseResponse(pubRes);
+          if (pubData?.partners) {
+            setPartners(pubData.partners);
+            return;
+          }
+        }
+      } catch (_) {}
+      notify("error", "Erreur lors du chargement des partenaires.");
     } finally {
       setLoading(false);
     }
@@ -137,7 +174,7 @@ export default function PartnersManager({ onNotify }: PartnersManagerProps) {
             method: "POST",
             body: formData,
           });
-          const data = await res.json();
+          const data = await safeParseResponse(res);
           if (!res.ok) throw new Error(data.error || "Erreur lors de la mise à jour");
 
           // delete the old one
@@ -153,7 +190,7 @@ export default function PartnersManager({ onNotify }: PartnersManagerProps) {
               website_url: websiteUrl.trim(),
             }),
           });
-          const data = await res.json();
+          const data = await safeParseResponse(res);
           if (!res.ok) throw new Error(data.error || "Erreur de mise à jour");
         }
         notify("success", "Partenaire mis à jour avec succès !");
@@ -172,7 +209,7 @@ export default function PartnersManager({ onNotify }: PartnersManagerProps) {
           method: "POST",
           body: formData,
         });
-        const data = await res.json();
+        const data = await safeParseResponse(res);
         if (!res.ok) throw new Error(data.error || "Erreur de création");
 
         notify("success", `Partenaire "${partnerName}" ajouté avec succès !`);
@@ -197,7 +234,8 @@ export default function PartnersManager({ onNotify }: PartnersManagerProps) {
           is_active: !partner.is_active,
         }),
       });
-      if (!res.ok) throw new Error("Erreur de modification");
+      const data = await safeParseResponse(res);
+      if (!res.ok) throw new Error(data.error || "Erreur de modification");
       setPartners((prev) =>
         prev.map((p) => (p.id === partner.id ? { ...p, is_active: !p.is_active } : p))
       );
@@ -216,7 +254,6 @@ export default function PartnersManager({ onNotify }: PartnersManagerProps) {
     newPartners[index] = newPartners[targetIndex];
     newPartners[targetIndex] = temp;
 
-    // Update display_order values
     const updatedWithOrder = newPartners.map((p, idx) => ({
       ...p,
       display_order: idx + 1,
@@ -225,13 +262,15 @@ export default function PartnersManager({ onNotify }: PartnersManagerProps) {
     setPartners(updatedWithOrder);
 
     try {
-      await fetch("/api/admin/partners", {
+      const res = await fetch("/api/admin/partners", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           items: updatedWithOrder.map((p) => ({ id: p.id, display_order: p.display_order })),
         }),
       });
+      const data = await safeParseResponse(res);
+      if (!res.ok) throw new Error(data.error || "Erreur lors du réordonnancement");
     } catch (err) {
       notify("error", "Erreur lors du réordonnancement");
       fetchPartners();
@@ -245,7 +284,8 @@ export default function PartnersManager({ onNotify }: PartnersManagerProps) {
       const res = await fetch(`/api/admin/partners?id=${partnerToDelete.id}`, {
         method: "DELETE",
       });
-      if (!res.ok) throw new Error("Erreur lors de la suppression");
+      const data = await safeParseResponse(res);
+      if (!res.ok) throw new Error(data.error || "Erreur lors de la suppression");
 
       notify("success", `Partenaire "${partnerToDelete.name}" supprimé.`);
       setPartnerToDelete(null);
