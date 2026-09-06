@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Linkedin, Instagram, Facebook, Globe, Cpu } from "lucide-react";
+import { Linkedin, Instagram, Facebook, Mail, Cpu } from "lucide-react";
 import { useSiteSettings } from "@/components/providers/SiteSettingsProvider";
 
 export default function Footer() {
@@ -120,16 +120,33 @@ export default function Footer() {
             </p>
             <div className="flex gap-4">
               {[
-                { icon: <Linkedin className="w-4 h-4" />, href: "https://linkedin.com" },
-                { icon: <Instagram className="w-4 h-4" />, href: "https://instagram.com" },
-                { icon: <Facebook className="w-4 h-4" />, href: "https://facebook.com" },
-                { icon: <Globe className="w-4 h-4" />, href: "http://enit.rnu.tn" }
+                { 
+                  icon: <Linkedin className="w-4 h-4" />, 
+                  href: "https://www.linkedin.com/company/club-g%C3%A9nie-industriel-enit/?viewAsMember=true",
+                  label: "LinkedIn"
+                },
+                { 
+                  icon: <Instagram className="w-4 h-4" />, 
+                  href: "https://www.instagram.com/club.genieindustriel.enit?fbclid=IwY2xjawUJbqlwZG9mBWV4dG4DYWVtAjEwAGJyaWQRMXZFQ3Yxdzg4amt5c0syTmhzcnRjBmFwcF9pZBAyMjIwMzkxNzg4MjAwODkyAAEe5_pGM4k0_z8UfZjuZ5Zo1XfXP1lCY4GjzsizFfBSXj00qJrnDXk2BQBykB4_aem_jwpEJZ3i_k_i-zZE7-4rxQ",
+                  label: "Instagram"
+                },
+                { 
+                  icon: <Facebook className="w-4 h-4" />, 
+                  href: "https://www.facebook.com/ClubGIEnit",
+                  label: "Facebook"
+                },
+                { 
+                  icon: <Mail className="w-4 h-4" />, 
+                  href: "mailto:clubgenieindustrielenit@gmail.com",
+                  label: "Email"
+                }
               ].map((social, index) => (
                 <motion.a
                   key={index}
                   href={social.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  target={social.href.startsWith("mailto:") ? undefined : "_blank"}
+                  rel={social.href.startsWith("mailto:") ? undefined : "noopener noreferrer"}
+                  aria-label={social.label}
                   whileHover={{ 
                     scale: 1.15,
                     backgroundColor: "#fca311",
@@ -154,10 +171,6 @@ export default function Footer() {
           <p className="text-xs text-custom-gray/40 text-center sm:text-left">
             &copy; {currentYear} Club Génie Industriel ENIT. Tous droits réservés.
           </p>
-          <div className="flex items-center gap-1.5 text-xs text-custom-gray/40">
-            <Cpu className="w-3.5 h-3.5 text-custom-amber" />
-            <span>Industrial Tech Edge Design System</span>
-          </div>
         </motion.div>
       </motion.div>
     </footer>

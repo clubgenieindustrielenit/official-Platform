@@ -142,13 +142,15 @@ export default function ProfilClient({
             </div>
           </div>
 
-          {/* Classe */}
+          {/* Classe ou Promotion */}
           <div className="p-3.5 rounded-xl bg-[#1a1c1c] border border-[#2a2c2c] space-y-1">
             <span className="text-[10px] text-[#888] font-bold uppercase tracking-wider block">
-              Classe ENIT
+              {initialProfile?.statut_membre === "alumni" ? "Promotion" : "Classe ENIT"}
             </span>
             <span className="text-xs font-bold text-white">
-              {initialProfile?.classe || "Non renseigné"}
+              {initialProfile?.statut_membre === "alumni"
+                ? initialProfile?.year || initialProfile?.promotion || initialProfile?.classe || "Alumni"
+                : initialProfile?.classe || "Non renseigné"}
             </span>
           </div>
 
@@ -163,16 +165,22 @@ export default function ProfilClient({
             </span>
           </div>
 
-          {/* Parcours Prépa */}
+          {/* Parcours Prépa & Concours */}
           <div className="p-3.5 rounded-xl bg-[#1a1c1c] border border-[#2a2c2c] space-y-1">
             <span className="text-[10px] text-[#888] font-bold uppercase tracking-wider block">
-              Parcours Prépa
+              Parcours Prépa & Concours
             </span>
             <span className="text-xs font-bold text-white">
-              {initialProfile?.prepa_section ? (
+              {initialProfile?.prepa_section || initialProfile?.annee_concours || initialProfile?.bio || initialProfile?.training_availability ? (
                 <>
-                  {initialProfile.prepa_section} · {initialProfile.prepa_etablissement || "Établissement ?"}
-                  {initialProfile.rang_concours ? ` (Rang #${initialProfile.rang_concours})` : ""}
+                  {initialProfile?.prepa_section ? `${initialProfile.prepa_section} · ` : ""}
+                  {initialProfile?.prepa_etablissement ? `${initialProfile.prepa_etablissement}` : ""}
+                  {initialProfile?.rang_concours ? ` (Rang #${initialProfile.rang_concours})` : ""}
+                  {(initialProfile?.annee_concours || initialProfile?.bio || initialProfile?.training_availability) ? (
+                    <span className="text-[#aaa] block text-[11px] mt-0.5">
+                      Concours : {initialProfile.annee_concours || initialProfile.bio || initialProfile.training_availability}
+                    </span>
+                  ) : null}
                 </>
               ) : (
                 <span className="text-[#666]">Non renseigné</span>

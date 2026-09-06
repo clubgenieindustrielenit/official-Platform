@@ -18,6 +18,7 @@ import {
   Loader2,
   ArrowRight,
   ShieldCheck,
+  Calendar,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useI18n } from "@/lib/i18n/context";
@@ -27,6 +28,7 @@ interface PreinscriptionFormProps {
   initialEmail: string;
   initialFirstName?: string;
   initialLastName?: string;
+  initialStatutMembre?: "actif" | "senior" | "alumni";
   onSuccess?: () => void;
 }
 
@@ -56,11 +58,33 @@ const CLASSES = [
   "3AGI",
 ];
 
+const PROMOTIONS = [
+  "2031",
+  "2030",
+  "2029",
+  "2028",
+  "2027",
+  "2026",
+  "2025",
+  "2024",
+  "2023",
+  "2022",
+  "2021",
+  "2020",
+  "2019",
+  "2018",
+  "2017",
+  "2016",
+  "2015",
+  "Avant 2015",
+];
+
 export default function PreinscriptionForm({
   userId,
   initialEmail,
   initialFirstName = "",
   initialLastName = "",
+  initialStatutMembre = "actif",
   onSuccess,
 }: PreinscriptionFormProps) {
   const { t } = useI18n();
@@ -72,7 +96,8 @@ export default function PreinscriptionForm({
   const [lastName, setLastName] = useState(initialLastName);
   const [phone, setPhone] = useState("");
   const [classe, setClasse] = useState<string>("");
-  const [statutMembre, setStatutMembre] = useState<"actif" | "senior" | "alumni">("actif");
+  const [promotion, setPromotion] = useState<string>("");
+  const [statutMembre, setStatutMembre] = useState<"actif" | "senior" | "alumni">(initialStatutMembre);
 
   // Optional fields (Point bonuses)
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -82,6 +107,7 @@ export default function PreinscriptionForm({
   const [prepaSchoolSelect, setPrepaSchoolSelect] = useState<string>("");
   const [prepaSchoolOther, setPrepaSchoolOther] = useState("");
   const [rangConcours, setRangConcours] = useState<string>("");
+  const [anneeConcours, setAnneeConcours] = useState<string>("");
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -94,14 +120,27 @@ export default function PreinscriptionForm({
   if (prepaSection) bonusPoints += 5;
   if (prepaSchoolSelect) bonusPoints += 5;
   if (rangConcours.trim()) bonusPoints += 5;
+  if (anneeConcours.trim()) bonusPoints += 5;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!userId) return;
 
-    if (!firstName.trim() || !lastName.trim() || !phone.trim() || !classe || !statutMembre) {
+    if (!firstName.trim() || !lastName.trim() || !phone.trim() || !statutMembre) {
       setError("Veuillez remplir tous les champs obligatoires (*).");
       return;
+    }
+
+    if (statutMembre === "alumni") {
+      if (!promotion.trim()) {
+        setError("Veuillez sélectionner votre promotion (*).");
+        return;
+      }
+    } else {
+      if (!classe) {
+        setError("Veuillez sélectionner votre classe (*).");
+        return;
+      }
     }
 
     setLoading(true);
@@ -155,10 +194,22 @@ export default function PreinscriptionForm({
         first_name: firstName.trim(),
         last_name: lastName.trim(),
         phone: phone.trim(),
-        classe: classe,
+        classe: statutMembre === "alumni" ? (promotion.trim() || "Alumni") : classe,
         statut_membre: statutMembre,
         statut_membre_verified: false,
+        profile_completed_at: new Date().toISOString(),
       };
+
+      if (statutMembre === "alumni") {
+        updateData.year = promotion.trim();
+      } else {
+        updateData.year = null;
+      }
+
+      if (anneeConcours.trim()) {
+        updateData.bio = anneeConcours.trim();
+        updateData.training_availability = anneeConcours.trim();
+      }
 
       if (avatarUrl) updateData.avatar_url = avatarUrl;
       if (cvUrl) updateData.cv_url = cvUrl;
@@ -307,25 +358,46 @@ export default function PreinscriptionForm({
               </div>
             </div>
 
-            {/* Classe */}
-            <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-[#888] uppercase">
-                {t("preinscription.class", "Classe")} *
-              </label>
-              <select
-                required
-                value={classe}
-                onChange={(e) => setClasse(e.target.value)}
-                className="w-full bg-[#1e2020] border border-[#333535] focus:border-custom-amber rounded-xl py-3 px-3.5 text-[#e2e2e2] text-sm outline-none transition-all"
-              >
-                <option value="">Sélectionner votre classe</option>
-                {CLASSES.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {/* Classe (si Actif ou Senior) ou Promotion (si Alumni) */}
+            {statutMembre === "alumni" ? (
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold text-[#888] uppercase">
+                  {t("preinscription.promotion", "Promotion (Année de diplôme)")} *
+                </label>
+                <div className="relative">
+                  <GraduationCap className="w-4 h-4 text-[#777] absolute left-3.5 top-3.5" />
+                  <input
+                    type="number"
+                    required
+                    min={1970}
+                    max={2040}
+                    value={promotion}
+                    onChange={(e) => setPromotion(e.target.value)}
+                    placeholder="Ex: 2024"
+                    className="w-full bg-[#1e2020] border border-[#333535] focus:border-custom-amber rounded-xl py-3 pl-10 pr-3.5 text-[#e2e2e2] text-sm outline-none transition-all"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold text-[#888] uppercase">
+                  {t("preinscription.class", "Classe")} *
+                </label>
+                <select
+                  required
+                  value={classe}
+                  onChange={(e) => setClasse(e.target.value)}
+                  className="w-full bg-[#1e2020] border border-[#333535] focus:border-custom-amber rounded-xl py-3 px-3.5 text-[#e2e2e2] text-sm outline-none transition-all"
+                >
+                  <option value="">Sélectionner votre classe</option>
+                  {CLASSES.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             {/* Statut Membre */}
             <div className="space-y-1 sm:col-span-2">
@@ -527,25 +599,51 @@ export default function PreinscriptionForm({
             )}
 
             {/* Rang au Concours National (+5 pts) */}
-            <div className="space-y-1">
-              <div className="flex items-center justify-between">
-                <label className="text-[11px] font-semibold text-[#888] uppercase">
-                  {t("preinscription.rank", "Rang au Concours National")}
-                </label>
-                <span className="text-[10px] font-bold text-custom-amber bg-custom-amber/10 px-2 py-0.5 rounded-md border border-custom-amber/20">
-                  +5 pts
-                </span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-semibold text-[#888] uppercase">
+                    {t("preinscription.rank", "Rang au Concours National")}
+                  </label>
+                  <span className="text-[10px] font-bold text-custom-amber bg-custom-amber/10 px-2 py-0.5 rounded-md border border-custom-amber/20">
+                    +5 pts
+                  </span>
+                </div>
+                <div className="relative">
+                  <Award className="w-4 h-4 text-[#777] absolute left-3.5 top-3.5" />
+                  <input
+                    type="number"
+                    min={1}
+                    value={rangConcours}
+                    onChange={(e) => setRangConcours(e.target.value)}
+                    placeholder="Ex: 42"
+                    className="w-full bg-[#1e2020] border border-[#333535] focus:border-custom-amber rounded-xl py-3 pl-10 pr-3.5 text-[#e2e2e2] text-sm outline-none transition-all"
+                  />
+                </div>
               </div>
-              <div className="relative">
-                <Award className="w-4 h-4 text-[#777] absolute left-3.5 top-3.5" />
-                <input
-                  type="number"
-                  min={1}
-                  value={rangConcours}
-                  onChange={(e) => setRangConcours(e.target.value)}
-                  placeholder="Ex: 42"
-                  className="w-full bg-[#1e2020] border border-[#333535] focus:border-custom-amber rounded-xl py-3 pl-10 pr-3.5 text-[#e2e2e2] text-sm outline-none transition-all"
-                />
+
+              {/* Année de passage du concours (+5 pts) */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-semibold text-[#888] uppercase">
+                    {t("preinscription.concours_year", "Année de passage du concours")}
+                  </label>
+                  <span className="text-[10px] font-bold text-custom-amber bg-custom-amber/10 px-2 py-0.5 rounded-md border border-custom-amber/20">
+                    +5 pts
+                  </span>
+                </div>
+                <div className="relative">
+                  <Calendar className="w-4 h-4 text-[#777] absolute left-3.5 top-3.5" />
+                  <input
+                    type="number"
+                    min={1990}
+                    max={2035}
+                    value={anneeConcours}
+                    onChange={(e) => setAnneeConcours(e.target.value)}
+                    placeholder="Ex: 2023"
+                    className="w-full bg-[#1e2020] border border-[#333535] focus:border-custom-amber rounded-xl py-3 pl-10 pr-3.5 text-[#e2e2e2] text-sm outline-none transition-all"
+                  />
+                </div>
               </div>
             </div>
           </div>

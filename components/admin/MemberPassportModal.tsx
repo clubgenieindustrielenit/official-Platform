@@ -161,11 +161,15 @@ export default function MemberPassportModal({
                           {data.profile.phone}
                         </span>
                       )}
-                      {data.profile.classe && (
+                      {data.profile.statut_membre === "alumni" ? (
+                        <span className="bg-purple-500/20 text-purple-300 border border-purple-500/30 px-2 py-0.5 rounded print:text-black">
+                          Promotion : {data.profile.year || data.profile.promotion || data.profile.classe || "Alumni"}
+                        </span>
+                      ) : data.profile.classe ? (
                         <span className="bg-white/10 px-2 py-0.5 rounded text-white print:text-black">
                           Classe : {data.profile.classe}
                         </span>
-                      )}
+                      ) : null}
                       {((data.profile.assigned_poles && data.profile.assigned_poles.length > 0)
                         ? data.profile.assigned_poles
                         : data.profile.poles
@@ -197,14 +201,17 @@ export default function MemberPassportModal({
                 </div>
               </div>
 
-              {/* Extra Info: Prépa / LinkedIn / CV */}
+              {/* Extra Info: Prépa / Concours / LinkedIn / CV */}
               <div className="mt-4 pt-4 border-t border-white/10 flex flex-wrap items-center justify-between gap-3 text-xs">
-                <div className="flex items-center gap-4 text-[#aaa] print:text-gray-700">
+                <div className="flex flex-wrap items-center gap-4 text-[#aaa] print:text-gray-700">
                   {data.profile.prepa_section && (
                     <span>Prépa : <strong>{data.profile.prepa_section}</strong> ({data.profile.prepa_etablissement || "N/A"})</span>
                   )}
                   {data.profile.rang_concours && (
                     <span>Rang concours : <strong>#{data.profile.rang_concours}</strong></span>
+                  )}
+                  {(data.profile.annee_concours || data.profile.bio || data.profile.training_availability) && (
+                    <span>Année concours : <strong>{data.profile.annee_concours || data.profile.bio || data.profile.training_availability}</strong></span>
                   )}
                 </div>
 

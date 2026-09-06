@@ -15,7 +15,7 @@ import { z } from "zod";
 // Shared primitives
 // ---------------------------------------------------------------------------
 
-export const roleEnum = z.enum(["membre_actif", "membre_bureau", "admin"]);
+export const roleEnum = z.enum(["membre_actif", "membre_bureau", "admin", "senior", "alumni", "senior_member"]);
 export const statutMembreEnum = z.enum(["actif", "senior", "alumni"]);
 
 // ---------------------------------------------------------------------------
@@ -24,7 +24,7 @@ export const statutMembreEnum = z.enum(["actif", "senior", "alumni"]);
 export const inviteSchema = z
   .object({
     email: z.string().email("Adresse e-mail invalide.").max(254),
-    role: roleEnum,
+    role: z.enum(["membre_actif", "membre_bureau", "admin", "senior", "alumni", "senior_member"]),
     duration: z.number().int().min(1).max(365).optional().default(7),
     created_by: z.string().optional(),
   })
@@ -78,8 +78,12 @@ export const memberProfileSchema = z
       .string()
       .regex(/^\+?[\d\s\-().]{6,20}$/, "Format de téléphone invalide.")
       .trim(),
-    classe: z.string().min(1, "Classe requise.").max(20),
+    classe: z.string().max(30).nullable().optional(),
     statut_membre: statutMembreEnum,
+    year: z.string().max(20).nullable().optional(),
+    promotion: z.string().max(20).nullable().optional(),
+    annee_concours: z.string().max(20).nullable().optional(),
+    bio: z.string().max(500).nullable().optional(),
     // Optional fields
     avatar_url: z.string().url().max(2048).nullable().optional(),
     cv_url: z.string().url().max(2048).nullable().optional(),

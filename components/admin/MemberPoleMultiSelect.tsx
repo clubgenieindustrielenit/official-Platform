@@ -79,6 +79,7 @@ export default function MemberPoleMultiSelect({
     if (name.includes("logistique") || name.includes("événement") || name.includes("evenement")) return "#3b82f6";
     if (name.includes("projet")) return "#10b981";
     if (name.includes("formation")) return "#a855f7";
+    if (name.includes("média") || name.includes("media")) return "#ec4899";
     return "#888888";
   };
 

@@ -71,6 +71,8 @@ import LeaderboardStats from "@/components/admin/LeaderboardStats";
 import AnnouncementFormModal from "@/components/admin/AnnouncementFormModal";
 import CalendarManager from "@/components/admin/CalendarManager";
 import MemberPoleMultiSelect from "@/components/admin/MemberPoleMultiSelect";
+import TestimonialsManager from "@/components/admin/TestimonialsManager";
+import AnnuaireManager from "@/components/admin/AnnuaireManager";
 
 import Toast, { ToastMessage } from "@/components/ui/Toast";
 import ConfirmModal from "@/components/ui/ConfirmModal";
@@ -108,6 +110,9 @@ export interface MemberRecord {
   prepa_section?: string | null;
   prepa_etablissement?: string | null;
   rang_concours?: number | null;
+  bio?: string | null;
+  annee_concours?: string | null;
+  training_availability?: string | null;
   profile_completed_at?: string | null;
   is_active?: boolean;
   created_at: string;
@@ -243,7 +248,7 @@ export default function AdminDashboardPage() {
 
   // Form states (Invitations)
   const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState<"membre_actif" | "membre_bureau">("membre_actif");
+  const [inviteRole, setInviteRole] = useState<"membre_actif" | "membre_bureau" | "senior" | "alumni">("membre_actif");
   const [inviteDuration, setInviteDuration] = useState<number>(7);
   const [sendingInvite, setSendingInvite] = useState(false);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
@@ -286,6 +291,20 @@ export default function AdminDashboardPage() {
 
   const router = useRouter();
   const supabase = createClient();
+
+  const handleSignOut = async () => {
+    setModalConfig({
+      isOpen: true,
+      title: "Déconnexion de l'espace Admin",
+      message: "Êtes-vous sûr de vouloir vous déconnecter de votre session administrateur ?",
+      confirmText: "Se déconnecter",
+      variant: "danger",
+      onConfirm: async () => {
+        await supabase.auth.signOut();
+        router.push("/login");
+      },
+    });
+  };
 
   // Auth Guard check
   useEffect(() => {
@@ -346,7 +365,7 @@ export default function AdminDashboardPage() {
       const { data: memberData, error: memberErr } = await supabase
         .from("profiles")
         .select("*")
-        .order("created_at", { ascending: false });
+        .order("joined_at", { ascending: false });
 
       if (!memberErr && memberData) {
         setMembers(memberData);
@@ -511,11 +530,6 @@ export default function AdminDashboardPage() {
     }, 4000);
     return () => clearInterval(interval);
   }, [heroImages.length]);
-
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    router.push("/login");
-  };
 
   const handleSendInvite = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -934,12 +948,15 @@ export default function AdminDashboardPage() {
 
   // Filtered members list
   const filteredMembers = members.filter((m) => {
-    const q = memberSearch.toLowerCase();
+    if (!memberSearch.trim()) return true;
+    const q = memberSearch.toLowerCase().trim();
     return (
-      m.email.toLowerCase().includes(q) ||
+      (m.email && m.email.toLowerCase().includes(q)) ||
       (m.first_name && m.first_name.toLowerCase().includes(q)) ||
       (m.last_name && m.last_name.toLowerCase().includes(q)) ||
-      m.role.toLowerCase().includes(q)
+      (m.classe && m.classe.toLowerCase().includes(q)) ||
+      (m.statut_membre && m.statut_membre.toLowerCase().includes(q)) ||
+      (m.role && m.role.toLowerCase().includes(q))
     );
   });
 
@@ -1010,6 +1027,7 @@ export default function AdminDashboardPage() {
           <div className="hidden md:flex items-center gap-3">
             {activeTab === "invitations" && <Mail className="w-5 h-5 text-[#fca311]" />}
             {activeTab === "membres" && <Users className="w-5 h-5 text-[#fca311]" />}
+            {activeTab === "annuaire" && <FileText className="w-5 h-5 text-[#fca311]" />}
             {activeTab === "activities" && <Sparkles className="w-5 h-5 text-[#fca311]" />}
             {activeTab === "hero" && <ImageIcon className="w-5 h-5 text-[#fca311]" />}
             {activeTab === "visites" && <Factory className="w-5 h-5 text-[#fca311]" />}
@@ -1019,7 +1037,8 @@ export default function AdminDashboardPage() {
             {activeTab === "ressources" && <BookOpen className="w-5 h-5 text-[#fca311]" />}
             {activeTab === "stats" && <Trophy className="w-5 h-5 text-[#fca311]" />}
             {activeTab === "annonces" && <Megaphone className="w-5 h-5 text-[#fca311]" />}
-            {["contenu", "temoignages", "parametres"].includes(activeTab) && (
+            {activeTab === "temoignages" && <MessageSquare className="w-5 h-5 text-[#fca311]" />}
+            {["contenu", "parametres"].includes(activeTab) && (
               <Wrench className="w-5 h-5 text-[#fca311]" />
             )}
             <h2 className="text-xl font-extrabold text-white tracking-tight font-mono uppercase">
@@ -1027,6 +1046,8 @@ export default function AdminDashboardPage() {
                 ? "Invitations"
                 : activeTab === "membres"
                 ? "Club Members"
+                : activeTab === "annuaire"
+                ? "Annuaire des Membres"
                 : activeTab === "projets"
                 ? "Gestion des Projets"
                 : activeTab === "formations"
@@ -1043,6 +1064,8 @@ export default function AdminDashboardPage() {
                 ? "Activités du Club"
                 : activeTab === "annonces"
                 ? "Annonces & Posts"
+                : activeTab === "temoignages"
+                ? "Gestion des Témoignages"
                 : activeTab === "hero"
                 ? "Hero Carousel"
                 : "CGI ENIT"}
@@ -1059,10 +1082,22 @@ export default function AdminDashboardPage() {
             </span>
           </div>
 
-          {/* Right Area: Bell + Avatar Profile */}
-          <div className="flex items-center gap-4">
-            <button className="p-2 text-[#888] hover:text-white transition-colors">
+          {/* Right Area: Bell + Dynamic Red Highlighted Logout Button + Avatar Profile */}
+          <div className="flex items-center gap-3 sm:gap-4">
+            <button className="p-2 text-[#888] hover:text-white transition-colors relative" title="Notifications">
               <Bell className="w-5 h-5" />
+            </button>
+
+            {/* Dynamic Highlighted Red Logout Button */}
+            <button
+              onClick={handleSignOut}
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-red-500/15 border border-red-500/35 text-red-400 hover:bg-red-500 hover:text-white hover:border-red-500 text-xs font-bold transition-all shadow-[0_0_15px_rgba(239,68,68,0.15)] cursor-pointer group shrink-0"
+              title="Déconnexion de l'espace administration"
+            >
+              <LogOut className="w-4 h-4 transition-transform group-hover:-translate-x-0.5" />
+              <span className="hidden sm:inline font-mono uppercase text-[11px] tracking-wider">
+                Déconnexion
+              </span>
             </button>
 
             <div className="h-6 w-[1px] bg-[#222]" />
@@ -1124,8 +1159,10 @@ export default function AdminDashboardPage() {
                           onChange={(e) => setInviteRole(e.target.value as any)}
                           className="w-full bg-[#121414] border border-[#333535] focus:border-[#fca311] rounded-lg py-2.5 px-3 text-xs text-white font-mono outline-none cursor-pointer"
                         >
-                          <option value="membre_actif">Active Member</option>
-                          <option value="membre_bureau">Board Member</option>
+                          <option value="membre_actif">Active Member (1ère Année)</option>
+                          <option value="senior">Senior Member (2ème Année)</option>
+                          <option value="alumni">Alumni (3ème Année+ / Diplômé)</option>
+                          <option value="membre_bureau">Board Member (Membre Bureau)</option>
                         </select>
                       </div>
 
@@ -1147,8 +1184,18 @@ export default function AdminDashboardPage() {
                       </div>
                     </div>
 
-                    {/* Submit Button */}
-                    <div className="pt-2 flex justify-end">
+                    {/* Action Buttons */}
+                    <div className="pt-2 flex flex-wrap items-center justify-between gap-3">
+                      <a
+                        href="/preview/invite-email"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-[#333535] bg-[#121414] hover:bg-[#1a1d1d] text-[#888] hover:text-[#fca311] text-xs font-mono transition-colors"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>Aperçu de l'Email d'invitation ↗</span>
+                      </a>
+
                       <button
                         type="submit"
                         disabled={sendingInvite}
@@ -1485,12 +1532,19 @@ export default function AdminDashboardPage() {
                             <td className="py-3.5 px-4">
                               <div className="space-y-0.5 text-[11px]">
                                 <div className="font-bold text-white">
-                                  {row.classe || "Non renseigné"}
+                                  {row.statut_membre === "alumni"
+                                    ? `Promotion : ${row.year || row.classe || "Alumni"}`
+                                    : row.classe || "Non renseigné"}
                                 </div>
                                 {row.prepa_section && (
                                   <div className="text-[10px] text-[#888]">
                                     Prépa: {row.prepa_section} ({row.prepa_etablissement || "?"})
                                     {row.rang_concours ? ` · Rang #${row.rang_concours}` : ""}
+                                  </div>
+                                )}
+                                {(row.bio || row.training_availability) && (
+                                  <div className="text-[10px] text-custom-amber/80 font-mono">
+                                    Concours: {row.bio || row.training_availability}
                                   </div>
                                 )}
                                 <div className="flex items-center gap-2 pt-1">
@@ -1580,6 +1634,16 @@ export default function AdminDashboardPage() {
                 </div>
               </div>
             </div>
+          )}
+
+          {/* TAB: ANNUAIRE DES MEMBRES */}
+          {activeTab === "annuaire" && (
+            <AnnuaireManager
+              members={members}
+              polesMap={polesMap}
+              onSelectMember={(m) => setSelectedMemberForDetails(m)}
+              onOpenPassport={(id) => setSelectedMemberForPassport(id)}
+            />
           )}
 
           {/* TAB 3: HERO CAROUSEL MANAGER */}
@@ -2293,6 +2357,9 @@ export default function AdminDashboardPage() {
             </div>
           )}
 
+          {/* TAB: TEMOIGNAGES */}
+          {activeTab === "temoignages" && <TestimonialsManager onShowToast={addToast} />}
+
           {/* MEMBER PROFILE & DETAILS MODAL */}
           <AnimatePresence>
             {selectedMemberForDetails && (
@@ -2354,9 +2421,13 @@ export default function AdminDashboardPage() {
                       </span>
                     </div>
                     <div className="bg-[#1e2020] border border-[#2a2c2c] rounded-2xl p-3 text-center">
-                      <span className="text-[10px] text-[#888] uppercase font-semibold block">Classe</span>
+                      <span className="text-[10px] text-[#888] uppercase font-semibold block">
+                        {selectedMemberForDetails.statut_membre === "alumni" ? "Promotion" : "Classe"}
+                      </span>
                       <span className="text-xs font-bold text-white">
-                        {selectedMemberForDetails.classe || "N/A"}
+                        {selectedMemberForDetails.statut_membre === "alumni"
+                          ? selectedMemberForDetails.year || selectedMemberForDetails.classe || "Alumni"
+                          : selectedMemberForDetails.classe || "N/A"}
                       </span>
                     </div>
                     <div className="bg-[#1e2020] border border-[#2a2c2c] rounded-2xl p-3 text-center">
@@ -2432,10 +2503,16 @@ export default function AdminDashboardPage() {
                             {selectedMemberForDetails.prepa_etablissement || "Non renseigné"}
                           </span>
                         </div>
-                        <div className="flex justify-between items-center py-1">
+                        <div className="flex justify-between items-center py-1 border-b border-[#252727]">
                           <span className="text-[#888]">Rang Concours :</span>
                           <span className="text-custom-amber font-mono font-bold">
                             {selectedMemberForDetails.rang_concours ? `#${selectedMemberForDetails.rang_concours}` : "Non renseigné"}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center py-1">
+                          <span className="text-[#888]">Année Concours :</span>
+                          <span className="text-white font-mono">
+                            {selectedMemberForDetails.bio || selectedMemberForDetails.training_availability || "Non renseigné"}
                           </span>
                         </div>
                       </div>

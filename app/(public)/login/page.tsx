@@ -197,12 +197,6 @@ export default function LoginPage() {
           </form>
           
           <div className="mt-6 text-center pt-4 border-t border-surface-border space-y-2">
-            <p className="text-xs text-muted">
-              Pas encore de compte ?{" "}
-              <Link href="/signup" className="text-custom-amber hover:underline font-bold">
-                S&apos;inscrire ici
-              </Link>
-            </p>
             <p className="text-[11px] text-muted/70">
               {t("login.help_text", "Problème de connexion ?")}{" "}
               {t("login.contact_admin", "Contactez l'administrateur du système.")}

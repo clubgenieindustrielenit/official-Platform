@@ -219,6 +219,23 @@ export type Database = {
         Update: Partial<Database['public']['Tables']['invitations']['Row']>
         Relationships: []
       }
+      testimonials: {
+        Row: {
+          id: string
+          quote: string
+          author_name: string
+          author_role: string | null
+          author_photo_url: string | null
+          category: string | null
+          linkedin_url: string | null
+          approved: boolean
+          rejected: boolean
+          created_at: string
+        }
+        Insert: Partial<Database['public']['Tables']['testimonials']['Row']>
+        Update: Partial<Database['public']['Tables']['testimonials']['Row']>
+        Relationships: []
+      }
     }
     Views: {
       leaderboard: {

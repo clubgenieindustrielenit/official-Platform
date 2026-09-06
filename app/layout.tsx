@@ -13,7 +13,12 @@ export const metadata: Metadata = {
   title: "Club Génie Industriel ENIT - Live Your Best Experiences",
   description: "Plateforme officielle du Club Génie Industriel de l'École Nationale d'Ingénieurs de Tunis (ENIT). Supply Chain, Production, Amélioration Continue et Industrie 4.0.",
   icons: {
-    icon: "/favicon.ico",
+    icon: [
+      { url: "/favicon.png?v=3", type: "image/png" },
+      { url: "/favicon.ico?v=3" },
+    ],
+    shortcut: "/favicon.png?v=3",
+    apple: "/favicon.png?v=3",
   },
 };
 

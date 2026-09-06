@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { createClient } from '@/lib/supabase/client'
 import { Database } from '@/lib/supabase/database.types'
@@ -27,21 +28,25 @@ export default function UserHeader({ profile }: { profile: Profile }) {
 
   return (
     <header className="sticky top-[76px] z-20 flex h-16 items-center justify-between border-b border-[#2a2c2c] bg-[#0d0e0e]/90 px-4 backdrop-blur-md lg:px-8">
-      <div className="flex items-center gap-3">
-        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#fca311]/10 border border-[#fca311]/30">
+      <Link 
+        href="/membre/profil"
+        className="flex items-center gap-3 group p-1 -ml-1 rounded-xl hover:bg-white/[0.04] transition-colors"
+        title="Voir / Éditer mon profil"
+      >
+        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#fca311]/10 border border-[#fca311]/30 group-hover:border-[#fca311] transition-colors">
            <span className="font-bold text-xs text-[#fca311]">
             {profile.first_name?.[0] || 'U'}{profile.last_name?.[0] || 'A'}
            </span>
         </div>
         <div>
-          <p className="text-xs font-bold text-white leading-none">
+          <p className="text-xs font-bold text-white leading-none group-hover:text-[#fca311] transition-colors">
             {profile.first_name} {profile.last_name}
           </p>
           <p className="text-[10px] text-[#666] leading-none mt-1">
             {profile.poles?.name ? `Pôle ${profile.poles.name.replace(/^Pôle\s+/i, '')}` : 'Membre ENIT'} · {getRoleLabel(profile.role)}
           </p>
         </div>
-      </div>
+      </Link>
 
       <div className="flex items-center gap-2 sm:gap-3">
         {/* Points indicator */}

@@ -36,7 +36,6 @@ export default function Sidebar({ profile }: { profile: Profile }) {
     { href: '/membre/opportunites', label: 'Stages & Opportunités', icon: Briefcase },
     { href: '/membre/ressources', label: 'Ressources & Supports', icon: BookOpen },
     { href: '/membre/calendrier', label: 'Calendrier', icon: CalendarRange },
-    { href: '/membre/annuaire', label: 'Annuaire', icon: Users },
   ]
 
   return (

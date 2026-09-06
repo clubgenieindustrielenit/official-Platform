@@ -37,6 +37,11 @@ export interface ProfileData {
   prepa_section: string | null;
   prepa_etablissement: string | null;
   rang_concours: number | null;
+  year?: string | null;
+  promotion?: string | null;
+  annee_concours?: string | null;
+  bio?: string | null;
+  training_availability?: string | null;
   points_total?: number;
 }
 
@@ -73,6 +78,22 @@ const CLASSES = [
   "3AGI",
 ];
 
+const PROMOTIONS = [
+  "2026",
+  "2025",
+  "2024",
+  "2023",
+  "2022",
+  "2021",
+  "2020",
+  "2019",
+  "2018",
+  "2017",
+  "2016",
+  "2015",
+  "Avant 2015",
+];
+
 export default function EditProfileModal({
   isOpen,
   onClose,
@@ -86,6 +107,9 @@ export default function EditProfileModal({
   const [lastName, setLastName] = useState(profile.last_name || "");
   const [phone, setPhone] = useState(profile.phone || "");
   const [classe, setClasse] = useState(profile.classe || "1AGI1");
+  const [promotion, setPromotion] = useState(
+    profile.year || (profile.classe && /^\d{4}$/.test(profile.classe) ? profile.classe : "2024")
+  );
   const [statutMembre, setStatutMembre] = useState<"actif" | "senior" | "alumni">(
     profile.statut_membre || "actif"
   );
@@ -122,6 +146,10 @@ export default function EditProfileModal({
     profile.rang_concours !== null && profile.rang_concours !== undefined
       ? String(profile.rang_concours)
       : ""
+  );
+
+  const [anneeConcours, setAnneeConcours] = useState<string>(
+    profile.annee_concours || profile.bio || profile.training_availability || ""
   );
 
   const [loading, setLoading] = useState(false);
@@ -170,6 +198,12 @@ export default function EditProfileModal({
     if (!hadRang && hasRang) delta += 5;
     if (hadRang && !hasRang) delta -= 5;
 
+    // 7. Année Concours (5 pts)
+    const hadAnneeConcours = Boolean(profile.annee_concours || profile.bio || profile.training_availability);
+    const hasAnneeConcours = Boolean(anneeConcours.trim());
+    if (!hadAnneeConcours && hasAnneeConcours) delta += 5;
+    if (hadAnneeConcours && !hasAnneeConcours) delta -= 5;
+
     return delta;
   }, [
     profile,
@@ -182,6 +216,7 @@ export default function EditProfileModal({
     prepaSchoolSelect,
     prepaSchoolOther,
     rangConcours,
+    anneeConcours,
   ]);
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -215,9 +250,21 @@ export default function EditProfileModal({
     setError(null);
     setSuccess(null);
 
-    if (!firstName.trim() || !lastName.trim() || !phone.trim() || !classe || !statutMembre) {
+    if (!firstName.trim() || !lastName.trim() || !phone.trim() || !statutMembre) {
       setError("Veuillez renseigner tous les champs obligatoires (*).");
       return;
+    }
+
+    if (statutMembre === "alumni") {
+      if (!promotion.trim()) {
+        setError("Veuillez sélectionner votre promotion (*).");
+        return;
+      }
+    } else {
+      if (!classe) {
+        setError("Veuillez sélectionner votre classe (*).");
+        return;
+      }
     }
 
     setLoading(true);
@@ -277,8 +324,12 @@ export default function EditProfileModal({
         first_name: firstName.trim(),
         last_name: lastName.trim(),
         phone: phone.trim(),
-        classe,
+        classe: statutMembre === "alumni" ? (promotion.trim() || "Alumni") : classe,
         statut_membre: statutMembre,
+        year: statutMembre === "alumni" ? promotion.trim() : null,
+        promotion: statutMembre === "alumni" ? promotion.trim() : null,
+        annee_concours: anneeConcours.trim() || null,
+        bio: anneeConcours.trim() || null,
         avatar_url: finalAvatarUrl,
         cv_url: finalCvUrl,
         linkedin_url: linkedinUrl.trim() || null,
@@ -437,20 +488,38 @@ export default function EditProfileModal({
                   </div>
                 </div>
 
-                <div>
-                  <label className="text-[11px] font-medium text-[#aaa] block mb-1">Classe ENIT *</label>
-                  <select
-                    value={classe}
-                    onChange={(e) => setClasse(e.target.value)}
-                    className="w-full bg-[#1c1e1e] border border-[#333535] focus:border-custom-amber rounded-xl py-2.5 px-3 text-xs text-white outline-none transition-colors"
-                  >
-                    {CLASSES.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                {/* Classe (si Actif ou Senior) ou Promotion (si Alumni) */}
+                {statutMembre === "alumni" ? (
+                  <div>
+                    <label className="text-[11px] font-medium text-[#aaa] block mb-1">
+                      Promotion (Année de diplôme) *
+                    </label>
+                    <input
+                      type="number"
+                      min={1970}
+                      max={2040}
+                      value={promotion}
+                      onChange={(e) => setPromotion(e.target.value)}
+                      placeholder="Ex: 2024"
+                      className="w-full bg-[#1c1e1e] border border-[#333535] focus:border-custom-amber rounded-xl py-2.5 px-3 text-xs text-white outline-none transition-colors"
+                    />
+                  </div>
+                ) : (
+                  <div>
+                    <label className="text-[11px] font-medium text-[#aaa] block mb-1">Classe ENIT *</label>
+                    <select
+                      value={classe}
+                      onChange={(e) => setClasse(e.target.value)}
+                      className="w-full bg-[#1c1e1e] border border-[#333535] focus:border-custom-amber rounded-xl py-2.5 px-3 text-xs text-white outline-none transition-colors"
+                    >
+                      {CLASSES.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
                 <div className="sm:col-span-2">
                   <label className="text-[11px] font-medium text-[#aaa] block mb-1">Statut au Club *</label>
@@ -606,11 +675,11 @@ export default function EditProfileModal({
                     Parcours Classes Préparatoires
                   </span>
                   <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-custom-amber/10 text-custom-amber">
-                    Jusqu'à +15 pts
+                    Jusqu'à +20 pts
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
                   {/* Section (+5 pts) */}
                   <div>
                     <label className="text-[10px] font-semibold text-[#888] block mb-1">
@@ -650,7 +719,7 @@ export default function EditProfileModal({
                   {/* Rang (+5 pts) */}
                   <div>
                     <label className="text-[10px] font-semibold text-[#888] block mb-1">
-                      Rang Concours (+5 pts)
+                      Rang (+5 pts)
                     </label>
                     <input
                       type="number"
@@ -659,6 +728,22 @@ export default function EditProfileModal({
                       value={rangConcours}
                       onChange={(e) => setRangConcours(e.target.value)}
                       placeholder="Ex: 42"
+                      className="w-full bg-[#141515] border border-[#333] focus:border-custom-amber rounded-xl py-2 px-2.5 text-xs text-white outline-none"
+                    />
+                  </div>
+
+                  {/* Année Concours (+5 pts) */}
+                  <div>
+                    <label className="text-[10px] font-semibold text-[#888] block mb-1">
+                      Année Concours (+5 pts)
+                    </label>
+                    <input
+                      type="number"
+                      min={1990}
+                      max={2035}
+                      value={anneeConcours}
+                      onChange={(e) => setAnneeConcours(e.target.value)}
+                      placeholder="Ex: 2023"
                       className="w-full bg-[#141515] border border-[#333] focus:border-custom-amber rounded-xl py-2 px-2.5 text-xs text-white outline-none"
                     />
                   </div>

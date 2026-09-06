@@ -17,7 +17,7 @@ export async function GET() {
     // 2. Members overview
     const { data: allMembers } = await (client as any)
       .from("profiles")
-      .select("id, first_name, last_name, avatar_url, role, pole_id, pole_ids, points_total, statut_membre, statut_membre_verified, profile_completed_at, is_active, created_at");
+      .select("id, first_name, last_name, avatar_url, role, pole_id, pole_ids, points_total, statut_membre, statut_membre_verified, profile_completed_at, is_active, joined_at");
 
     const members = allMembers || [];
     const totalMembers = members.length;

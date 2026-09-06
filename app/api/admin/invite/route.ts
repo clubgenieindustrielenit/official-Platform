@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { verifyCanManage } from "@/lib/supabase/adminAuth";
 import { Resend } from "resend";
 import { inviteSchema, parseBody } from "@/lib/validation/schemas";
+import { generateInviteEmailHtml } from "@/lib/email/inviteEmailTemplate";
 
 export async function POST(request: Request) {
   try {
@@ -60,11 +61,14 @@ export async function POST(request: Request) {
     expiresAt.setDate(expiresAt.getDate() + duration);
     const token = crypto.randomUUID();
 
+    // Map role to valid DB check constraint value ('membre_actif' | 'membre_bureau')
+    const dbRole = role === "membre_bureau" ? "membre_bureau" : "membre_actif";
+
     const { data: newInvite, error: insertError } = await (client as any)
       .from("invitations")
       .insert({
         email: cleanEmail,
-        role,
+        role: dbRole,
         token,
         status: "pending",
         expires_at: expiresAt.toISOString(),
@@ -90,9 +94,10 @@ export async function POST(request: Request) {
     // invitation emails to a phishing domain.
     const appUrl =
       process.env.NEXT_PUBLIC_APP_URL ||
-      process.env.VERCEL_URL && `https://${process.env.VERCEL_URL}` ||
+      (process.env.VERCEL_URL && `https://${process.env.VERCEL_URL}`) ||
       "http://localhost:3000";
-    const inviteLink = `${appUrl}/invite/${token}`;
+    const roleParam = role && role !== "membre_actif" ? `?role=${encodeURIComponent(role)}` : "";
+    const inviteLink = `${appUrl}/invite/${token}${roleParam}`;
 
     // ── 6. Send email via Resend ────────────────────────────────────────────
     // Cost/Abuse FIX: Email is only sent AFTER auth is confirmed and the
@@ -104,64 +109,21 @@ export async function POST(request: Request) {
     if (resendApiKey) {
       try {
         const resend = new Resend(resendApiKey);
-        const roleLabel =
-          role === "membre_bureau" ? "Membre du Bureau" : "Membre Actif";
-
         const fromEmail = process.env.RESEND_FROM_EMAIL || "Club Génie Industriel ENIT <invites@mail.clubgenieindustrielenit.org>";
+
+        const emailHtml = generateInviteEmailHtml({
+          email: cleanEmail,
+          role,
+          inviteLink,
+          duration,
+          appUrl,
+        });
 
         const { error: mailErr } = await resend.emails.send({
           from: fromEmail,
           to: [cleanEmail],
-          subject: "Invitation — Club Génie Industriel ENIT",
-          html: `
-            <!DOCTYPE html>
-            <html>
-              <head>
-                <meta charset="utf-8" />
-                <title>Invitation CGI ENIT</title>
-              </head>
-              <body style="background-color: #121414; color: #e2e2e2; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; margin: 0; padding: 40px 20px;">
-                <table align="center" width="100%" border="0" cellPadding="0" cellSpacing="0" style="max-width: 560px; background-color: #14213d; border: 1px solid #333535; border-radius: 16px; padding: 40px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
-                  <tr>
-                    <td align="center" style="padding-bottom: 24px;">
-                      <div style="font-family: monospace; font-size: 11px; font-weight: bold; color: #fca311; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 8px;">
-                        CGI ENIT • TERMINAL D'INVITATION
-                      </div>
-                      <h1 style="color: #ffffff; font-size: 24px; font-weight: 800; margin: 0; text-transform: uppercase; letter-spacing: 1px;">
-                        Bienvenue au Club
-                      </h1>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style="color: #cccccc; font-size: 14px; line-height: 1.6; padding-bottom: 24px;">
-                      Bonjour,<br/><br/>
-                      Vous avez été officiellement invité(e) à rejoindre la plateforme interne du <strong style="color: #ffffff;">Club Génie Industriel de l'ENIT</strong> avec le rôle de <span style="color: #fca311; font-weight: bold;">${roleLabel}</span>.
-                    </td>
-                  </tr>
-                  <tr>
-                    <td align="center" style="padding-bottom: 32px;">
-                      <a href="${inviteLink}" target="_blank" style="background-color: #fca311; color: #000000; font-weight: bold; font-family: monospace; font-size: 14px; text-decoration: none; padding: 14px 28px; border-radius: 8px; display: inline-block; text-transform: uppercase; letter-spacing: 1px; box-shadow: 0 4px 15px rgba(252, 163, 17, 0.3);">
-                        Finaliser mon compte &rarr;
-                      </a>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style="color: #888888; font-size: 12px; line-height: 1.5; border-top: 1px solid #2a2c2c; padding-top: 20px;">
-                      <p style="margin: 0 0 8px 0;">Ce lien d'invitation est valable pendant <strong style="color: #ffffff;">${duration} jours</strong>.</p>
-                      <p style="margin: 0; font-size: 11px; color: #666666;">Si le bouton ne fonctionne pas, copiez et collez cette URL dans votre navigateur :<br/>
-                        <a href="${inviteLink}" style="color: #fca311; text-decoration: underline; word-break: break-all;">${inviteLink}</a>
-                      </p>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td align="center" style="padding-top: 24px; font-family: monospace; font-size: 10px; color: #555555; text-transform: uppercase; letter-spacing: 1px;">
-                      © ${new Date().getFullYear()} Club Génie Industriel — ENIT
-                    </td>
-                  </tr>
-                </table>
-              </body>
-            </html>
-          `,
+          subject: "Invitation Officielle — Club Génie Industriel ENIT",
+          html: emailHtml,
         });
 
         if (!mailErr) {

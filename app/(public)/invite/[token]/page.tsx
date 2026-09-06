@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, use } from "react";
+import React, { useState, useEffect, useMemo, use } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Lock, Eye, EyeOff, CheckCircle2, Clock, XCircle, ArrowRight, Loader2, User } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -21,6 +21,8 @@ interface InvitationData {
 export default function InvitePage({ params }: { params: Promise<{ token: string }> }) {
   const resolvedParams = use(params);
   const token = resolvedParams.token;
+  const searchParams = useSearchParams();
+  const urlRole = searchParams.get("role");
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -41,6 +43,23 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
 
   const router = useRouter();
   const supabase = createClient();
+
+  const effectiveRole = useMemo(() => {
+    return (urlRole || invitation?.role || "membre_actif").toLowerCase();
+  }, [urlRole, invitation?.role]);
+
+  const roleDetails = useMemo(() => {
+    if (effectiveRole.includes("bureau")) {
+      return { label: "Membre du Bureau", color: "text-[#fca311]", statut: "actif" as const };
+    }
+    if (effectiveRole.includes("senior")) {
+      return { label: "Membre Senior", color: "text-amber-400", statut: "senior" as const };
+    }
+    if (effectiveRole.includes("alumni")) {
+      return { label: "Alumni • Réseau Diplômé", color: "text-purple-400", statut: "alumni" as const };
+    }
+    return { label: "Membre Actif", color: "text-sky-400", statut: "actif" as const };
+  }, [effectiveRole]);
 
   useEffect(() => {
     async function fetchInvitation() {
@@ -187,12 +206,12 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
                     Vous avez été invité au Club Génie Industriel ENIT ✨
                   </h1>
                   <div className="mt-3 flex justify-center">
-                    <RoleBadge role={invitation.role} />
+                    <RoleBadge role={effectiveRole} />
                   </div>
                   <p className="text-sm text-[#a0a0a0] mt-3">
                     Votre invitation vous donne accès en tant que{" "}
-                    <span className="text-custom-amber font-semibold">
-                      {invitation.role === "membre_bureau" ? "Membre du Bureau" : "Membre Actif"}
+                    <span className={`font-semibold ${roleDetails.color}`}>
+                      {roleDetails.label}
                     </span>{" "}
                     ({invitation.email})
                   </p>
@@ -311,8 +330,9 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
                 initialEmail={invitation.email}
                 initialFirstName={userFirstName}
                 initialLastName={userLastName}
+                initialStatutMembre={roleDetails.statut}
                 onSuccess={() => {
-                  const targetRoute = invitation.role === "membre_bureau" ? "/bureau" : "/membre";
+                  const targetRoute = effectiveRole.includes("bureau") ? "/bureau" : "/membre";
                   router.push(targetRoute);
                 }}
               />

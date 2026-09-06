@@ -29,6 +29,10 @@ export async function PUT(request: Request) {
       phone,
       classe,
       statut_membre,
+      year,
+      promotion,
+      annee_concours,
+      bio,
       avatar_url,
       cv_url,
       linkedin_url,
@@ -41,12 +45,19 @@ export async function PUT(request: Request) {
     // IDOR FIX: The .eq("id", user.id) below ensures a member can only ever
     // update their OWN profile. The user.id comes from the server-side session,
     // not from the request body, so client-supplied IDs are ignored entirely.
+    const finalPromotion = promotion || year || null;
+    const finalClasse = statut_membre === "alumni" ? (finalPromotion || "Alumni") : (classe?.trim() || null);
+    const finalConcoursYear = annee_concours || bio || null;
+
     const updatePayload: Record<string, unknown> = {
       first_name: first_name.trim(),
       last_name: last_name.trim(),
       phone: phone.trim(),
-      classe: classe.trim(),
+      classe: finalClasse,
       statut_membre,
+      year: statut_membre === "alumni" ? finalPromotion : null,
+      bio: finalConcoursYear,
+      training_availability: finalConcoursYear,
       avatar_url: avatar_url || null,
       cv_url: cv_url || null,
       linkedin_url: linkedin_url?.trim() || null,

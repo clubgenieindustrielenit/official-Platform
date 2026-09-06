@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import HeroBackgroundCarousel from "@/components/home/HeroBackgroundCarousel";
 import ClubActivitiesSection from "@/components/home/ClubActivitiesSection";
+import PartnersMarquee from "@/components/home/PartnersMarquee";
 import { useSiteSettings } from "@/components/providers/SiteSettingsProvider";
 import { createClient } from "@/lib/supabase/client";
 
@@ -41,6 +42,33 @@ export default function HomePage() {
   const supabase = createClient();
   const [activeRoadmap, setActiveRoadmap] = useState<string>("supply");
   const { logoUrl } = useSiteSettings();
+
+  // Testimonials state
+  const [testimonials, setTestimonials] = useState<{
+    id: string;
+    quote: string;
+    author: string;
+    role?: string | null;
+    avatar?: string | null;
+  }[]>([]);
+  const [loadingTestimonials, setLoadingTestimonials] = useState(true);
+
+  useEffect(() => {
+    async function loadTestimonials() {
+      try {
+        const res = await fetch("/api/public/testimonials");
+        const data = await res.json();
+        if (res.ok && data.testimonials) {
+          setTestimonials(data.testimonials);
+        }
+      } catch (err) {
+        console.error("Failed to load testimonials:", err);
+      } finally {
+        setLoadingTestimonials(false);
+      }
+    }
+    loadTestimonials();
+  }, []);
 
   // Animation variants
   const fadeInUp: Variants = {
@@ -175,47 +203,28 @@ export default function HomePage() {
     }
   ];
 
-  // Testimonials
-  const testimonials = [
-    {
-      quote: "Le Club Génie Industriel de l'ENIT est un pont essentiel entre le monde académique et l'industrie. Leurs workshops complètent magnifiquement la rigueur scientifique de notre formation.",
-      author: "Pr. Slimane Ben Ali",
-      role: "Enseignant-Chercheur au Département GI, ENIT",
-      avatar: "S"
-    },
-    {
-      quote: "Nous collaborons régulièrement avec les étudiants du CGI pour nos études de cas. Leur dynamisme, leur esprit critique et leur maîtrise du Lean Six Sigma nous impressionnent à chaque fois.",
-      author: "Ing. Rym Kallel",
-      role: "Directrice Amélioration Continue, multinationale automobile",
-      avatar: "R"
-    },
-    {
-      quote: "Mon passage par le CGI a été le déclencheur de ma carrière en Supply Chain. C'est là que j'ai appris le travail d'équipe sous stress et la résolution de cas réels.",
-      author: "Hédi Ben Mansour",
-      role: "Alumnus ENIT • Supply Chain Analyst chez Unilever Paris",
-      avatar: "H"
-    }
-  ];
-
   // Developers
   const developers = [
     {
-      name: "Alexandre Martin",
-      role: "Lead Full-Stack Architect",
-      linkedIn: "https://linkedin.com",
-      avatar: "AM"
+      name: "Khalil Ksibi",
+      role: "Resp. Projets & Formations (Mandat 26/27)",
+      bio: "Étudiant en Génie Industriel à l'ENIT. Développeur de la plateforme et responsable des projets et des formations techniques du club.",
+      linkedIn: "https://www.linkedin.com/in/khalil-ksibi-015198377/",
+      avatar: "KK"
     },
     {
-      name: "Sarra Ben Ali",
-      role: "UI/UX Designer & Frontend",
-      linkedIn: "https://linkedin.com",
-      avatar: "SB"
+      name: "Seif Elouaer",
+      role: "Président du Club GI ENIT (Mandat 26/27)",
+      bio: "Étudiant en Génie Industriel à l'ENIT. Pilote de la vision stratégique et président engagé pour le rayonnement et l'innovation du club.",
+      linkedIn: "https://www.linkedin.com/in/seif-elouaer-693975218/",
+      avatar: "SE"
     },
     {
-      name: "Karim Tounsi",
-      role: "Développeur Full-Stack",
-      linkedIn: "https://linkedin.com",
-      avatar: "KT"
+      name: "Bacem Garrouch",
+      role: "Senior Member",
+      bio: "Étudiant en Génie Industriel à l'ENIT. Développeur et contributeur technique senior dédié à l'excellence technologique du club.",
+      linkedIn: "https://www.linkedin.com/in/bacem-garrouch-771a45280/",
+      avatar: "BG"
     }
   ];
 
@@ -249,9 +258,9 @@ export default function HomePage() {
             variants={fadeInUp}
             className="text-4xl sm:text-6xl md:text-7xl font-extrabold text-white tracking-tight leading-tight drop-shadow-[0_4px_12px_rgba(0,0,0,0.9)]"
           >
-            PROFICIENCY IS OUR <br />
+            WE MAKE THINGS <br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-custom-amber via-yellow-500 to-amber-600 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
-              CURRENCY
+              BETTER
             </span>
           </motion.h1>
 
@@ -353,26 +362,26 @@ export default function HomePage() {
                 L'excellence du Génie Industriel à l'ENIT.
               </h2>
               <p className="text-base sm:text-lg text-custom-gray/70 leading-relaxed">
-                Fondée en 1882 pour sa structure historique d'ingénierie et reconnue dans toute l'Afrique, l'École Nationale d'Ingénieurs de Tunis (ENIT) abrite un département de <strong className="text-custom-white">Génie Industriel</strong> prestigieux. C'est dans ce terreau d'excellence que le <strong className="text-custom-white">Club Génie Industriel ENIT</strong> a vu le jour en 1989.
+                Fondée le <strong className="text-custom-white">31 décembre 1968</strong> (par la loi n° 68-41) sous l'impulsion de son fondateur et premier directeur <strong className="text-custom-white">Mokhtar Latiri</strong>, l'École Nationale d'Ingénieurs de Tunis (ENIT) est la doyenne des écoles d'ingénieurs technologiques de Tunisie. Implantée au sein du campus universitaire d'El Manar (Université de Tunis - El Manar), elle abrite un département de <strong className="text-custom-white">Génie Industriel</strong> d'élite. C'est dans ce cadre d'excellence que le <strong className="text-custom-white">Club Génie Industriel ENIT</strong> a vu le jour en 1989.
               </p>
               <p className="text-sm text-custom-gray/60 leading-relaxed">
                 Notre mission est d'outiller les étudiants en génie industriel avec des compétences pratiques recherchées par le marché : la gestion de projets complexes, l'optimisation mathématique des flux logistiques, le déploiement du Lean Six Sigma, et la transition vers l'industrie 4.0. Nous unissons théorie académique et défis d'ingénierie pratiques pour forger la future élite industrielle.
               </p>
               
               {/* Metrics */}
-              <div className="grid grid-cols-3 gap-6 pt-6">
+              <div className="grid grid-cols-3 gap-2.5 sm:gap-6 pt-6">
                 {[
                   { value: "+70", label: "Étudiants / promo" },
-                  { value: "37 ans", label: "D'existence" },
+                  { value: "37 ans", label: "D'existence (Club)" },
                   { value: "+500", label: "Alumni actifs" }
                 ].map((metric, i) => (
                   <motion.div 
                     key={i}
                     whileHover={{ scale: 1.05, borderColor: "rgba(252, 163, 17, 0.3)" }}
-                    className="p-4 rounded-2xl bg-custom-navy border border-custom-gray/5 transition-all duration-300"
+                    className="p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-custom-navy border border-custom-gray/5 transition-all duration-300 text-center sm:text-left"
                   >
-                    <div className="text-2xl sm:text-3xl font-extrabold text-custom-amber">{metric.value}</div>
-                    <div className="text-[10px] sm:text-xs text-custom-gray/40 uppercase tracking-wider mt-1">{metric.label}</div>
+                    <div className="text-xl sm:text-3xl font-extrabold text-custom-amber">{metric.value}</div>
+                    <div className="text-[9px] sm:text-xs text-custom-gray/40 uppercase tracking-wider mt-1">{metric.label}</div>
                   </motion.div>
                 ))}
               </div>
@@ -404,7 +413,7 @@ export default function HomePage() {
                 {/* Top badge */}
                 <div className="absolute top-4 right-4">
                   <span className="text-[10px] font-mono text-custom-amber tracking-widest bg-black/70 backdrop-blur-sm border border-custom-amber/30 px-3 py-1.5 rounded-full">
-                    EST. 1989
+                    ENIT • EST. 1968
                   </span>
                 </div>
 
@@ -592,49 +601,86 @@ export default function HomePage() {
             </p>
           </motion.div>
 
-          <motion.div 
-            variants={staggerContainer}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: "-100px" }}
-            className="grid grid-cols-1 md:grid-cols-3 gap-8"
-          >
-            {testimonials.map((test, index) => (
-              <motion.div
-                key={index}
-                variants={fadeInUp}
-                whileHover={cardHoverEffect}
-                className="bg-custom-navy p-8 rounded-3xl border border-custom-gray/10 flex flex-col justify-between transition-all duration-300 cursor-pointer"
-              >
-                <div className="space-y-4">
-                  {/* Quote Icon */}
-                  <span className="text-6xl text-custom-amber/20 font-serif leading-none select-none">“</span>
-                  <p className="text-sm text-custom-gray/70 leading-relaxed italic -mt-6">
-                    {test.quote}
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-4 pt-8 border-t border-custom-gray/5 mt-6">
-                  {/* Avatar */}
-                  <div className="w-10 h-10 rounded-full bg-black border border-custom-amber/20 flex items-center justify-center text-custom-amber font-extrabold text-sm">
-                    {test.avatar}
+          {loadingTestimonials ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {[1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className="bg-custom-navy/60 p-8 rounded-3xl border border-custom-gray/10 animate-pulse space-y-6"
+                >
+                  <div className="w-8 h-8 rounded-full bg-white/5" />
+                  <div className="space-y-2">
+                    <div className="h-4 bg-white/5 rounded-md w-full" />
+                    <div className="h-4 bg-white/5 rounded-md w-5/6" />
+                    <div className="h-4 bg-white/5 rounded-md w-3/4" />
                   </div>
-                  <div>
-                    <h4 className="text-custom-white font-bold text-sm leading-tight">
-                      {test.author}
-                    </h4>
-                    <p className="text-[10px] text-custom-gray/50 mt-0.5">
-                      {test.role}
+                  <div className="flex items-center gap-4 pt-6 border-t border-custom-gray/5">
+                    <div className="w-10 h-10 rounded-full bg-white/10" />
+                    <div className="space-y-1.5 flex-1">
+                      <div className="h-3.5 bg-white/10 rounded w-1/2" />
+                      <div className="h-2.5 bg-white/5 rounded w-1/3" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : testimonials.length === 0 ? (
+            <div className="text-center py-12 bg-custom-navy/30 rounded-3xl border border-custom-navy/40 max-w-xl mx-auto p-8">
+              <span className="text-4xl text-custom-amber/40 block mb-2 font-serif">“</span>
+              <p className="text-sm text-custom-gray/60 italic">
+                De nouveaux témoignages de nos partenaires et anciens membres seront publiés prochainement.
+              </p>
+            </div>
+          ) : (
+            <motion.div 
+              variants={staggerContainer}
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true, margin: "-100px" }}
+              className="grid grid-cols-1 md:grid-cols-3 gap-8"
+            >
+              {testimonials.map((test, index) => (
+                <motion.div
+                  key={test.id || index}
+                  variants={fadeInUp}
+                  whileHover={cardHoverEffect}
+                  className="bg-custom-navy p-8 rounded-3xl border border-custom-gray/10 flex flex-col justify-between transition-all duration-300 cursor-pointer"
+                >
+                  <div className="space-y-4">
+                    {/* Quote Icon */}
+                    <span className="text-6xl text-custom-amber/20 font-serif leading-none select-none">“</span>
+                    <p className="text-sm text-custom-gray/70 leading-relaxed italic -mt-6">
+                      {test.quote}
                     </p>
                   </div>
-                </div>
-              </motion.div>
-            ))}
-          </motion.div>
+
+                  <div className="flex items-center gap-4 pt-8 border-t border-custom-gray/5 mt-6">
+                    {/* Avatar */}
+                    <div className="w-10 h-10 rounded-full bg-black border border-custom-amber/20 flex items-center justify-center text-custom-amber font-extrabold text-sm shrink-0">
+                      {test.avatar || (test.author ? test.author.substring(0, 2).toUpperCase() : "CG")}
+                    </div>
+                    <div className="min-w-0">
+                      <h4 className="text-custom-white font-bold text-sm leading-tight truncate">
+                        {test.author}
+                      </h4>
+                      {test.role && (
+                        <p className="text-[10px] text-custom-gray/50 mt-0.5 truncate">
+                          {test.role}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </motion.div>
+          )}
         </div>
       </section>
 
-      {/* 7. WEBSITE DEVELOPERS SECTION */}
+      {/* 7. PARTNERS / SPONSORS MARQUEE (LOGOS3) */}
+      <PartnersMarquee />
+
+      {/* 8. WEBSITE DEVELOPERS SECTION */}
       <section id="developers" className="py-24 bg-black border-t border-custom-navy/20 relative">
         <div className="absolute right-0 bottom-0 w-[250px] h-[250px] bg-custom-navy/10 blur-[90px] pointer-events-none" />
         
@@ -653,7 +699,7 @@ export default function HomePage() {
               Website Developers
             </h2>
             <p className="text-sm text-custom-gray/60 leading-relaxed">
-              La vitrine de l'équipe étudiante ayant conçu et déployé la plateforme web V0 du Club Génie Industriel ENIT.
+              La vitrine de l'équipe étudiante ayant conçu et déployé la plateforme officielle du Club Génie Industriel ENIT.
             </p>
           </motion.div>
 
@@ -684,8 +730,8 @@ export default function HomePage() {
                       {dev.role}
                     </p>
                   </div>
-                  <p className="text-xs text-custom-gray/50 leading-relaxed">
-                    Étudiant en Génie Industriel à l'ENIT. Passionné par l'intersection entre le développement de logiciels et l'excellence opérationnelle.
+                  <p className="text-xs text-custom-gray/60 leading-relaxed">
+                    {dev.bio}
                   </p>
                 </div>
 
