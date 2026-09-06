@@ -19,6 +19,7 @@ import {
   Briefcase,
   Megaphone,
   CalendarDays,
+  Handshake,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSiteSettings } from "@/components/providers/SiteSettingsProvider";
@@ -44,6 +45,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
   { id: "annonces", label: "Annonces & Posts", icon: Megaphone },
   { id: "temoignages", label: "Témoignages", icon: MessageSquare },
   { id: "calendrier", label: "Calendrier", icon: CalendarDays },
+  { id: "partenaires", label: "Partenaires & Logos", icon: Handshake },
   { id: "hero", label: "Hero Carousel", icon: Image },
   { id: "parametres", label: "Logo & Marque", icon: Settings },
 ];

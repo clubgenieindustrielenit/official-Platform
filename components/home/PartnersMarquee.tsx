@@ -1,15 +1,17 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Handshake } from "lucide-react";
 
 export interface PartnerLogo {
+  id?: string;
   name: string;
   src: string;
+  website_url?: string | null;
 }
 
-const ROW_1: PartnerLogo[] = [
+const DEFAULT_ROW_1: PartnerLogo[] = [
   { name: "WYNSYS", src: "/partners/wynsys.png" },
   { name: "SOTUVER", src: "/partners/sotuver.png" },
   { name: "Tunisie Telecom", src: "/partners/tt.png" },
@@ -19,7 +21,7 @@ const ROW_1: PartnerLogo[] = [
   { name: "COFICAB", src: "/partners/coficab.png" },
 ];
 
-const ROW_2: PartnerLogo[] = [
+const DEFAULT_ROW_2: PartnerLogo[] = [
   { name: "WEVIOO", src: "/partners/wevioo.png" },
   { name: "BONTAZ", src: "/partners/bontaz.png" },
   { name: "TPR Aluminium", src: "/partners/tpr.png" },
@@ -30,9 +32,46 @@ const ROW_2: PartnerLogo[] = [
 ];
 
 export default function PartnersMarquee() {
-  // Duplicate arrays to enable seamless infinite continuous looping
-  const row1List = [...ROW_1, ...ROW_1, ...ROW_1];
-  const row2List = [...ROW_2, ...ROW_2, ...ROW_2];
+  const [row1, setRow1] = useState<PartnerLogo[]>(DEFAULT_ROW_1);
+  const [row2, setRow2] = useState<PartnerLogo[]>(DEFAULT_ROW_2);
+
+  useEffect(() => {
+    async function loadPartners() {
+      try {
+        const res = await fetch("/api/partners");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.row1 && data.row2 && data.row1.length > 0) {
+            setRow1(
+              data.row1.map((p: any) => ({
+                id: p.id,
+                name: p.name,
+                src: p.logo_url,
+                website_url: p.website_url,
+              }))
+            );
+            setRow2(
+              data.row2.map((p: any) => ({
+                id: p.id,
+                name: p.name,
+                src: p.logo_url,
+                website_url: p.website_url,
+              }))
+            );
+          }
+        }
+      } catch (err) {
+        console.error("Error loading partners:", err);
+      }
+    }
+    loadPartners();
+  }, []);
+
+  // Repeat lists for seamless continuous infinite marquee
+  const row1List = row1.length > 0 ? [...row1, ...row1, ...row1] : [];
+  const row2List = row2.length > 0 ? [...row2, ...row2, ...row2] : [];
+
+  if (row1List.length === 0 && row2List.length === 0) return null;
 
   return (
     <section id="partners" className="py-24 bg-black border-t border-custom-navy/30 relative overflow-hidden">
@@ -50,7 +89,7 @@ export default function PartnersMarquee() {
         >
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-custom-navy/70 border border-custom-amber/30 text-custom-amber text-xs font-bold uppercase tracking-wider shadow-[0_0_15px_rgba(252,163,17,0.12)]">
             <Handshake className="w-4 h-4 text-custom-amber" />
-            <span>Partenaires & Sponsors</span>
+            <span>Partenaires &amp; Sponsors</span>
           </div>
 
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-custom-white tracking-tight leading-tight">
@@ -71,38 +110,68 @@ export default function PartnersMarquee() {
 
         <div className="space-y-6 overflow-hidden py-2">
           {/* Row 1 — Moving Left */}
-          <div className="flex w-max animate-marquee hover:[animation-play-state:paused] gap-5 sm:gap-7 items-center">
-            {row1List.map((partner, index) => (
-              <div
-                key={`row1-${partner.name}-${index}`}
-                className="group flex items-center justify-center w-56 sm:w-64 h-28 sm:h-32 p-3 sm:p-4 rounded-2xl bg-white border border-custom-gray/10 shadow-md hover:shadow-[0_0_25px_rgba(252,163,17,0.3)] hover:border-custom-amber/60 transition-all duration-300 transform hover:-translate-y-1 cursor-pointer shrink-0 overflow-hidden"
-              >
-                <img
-                  src={partner.src}
-                  alt={partner.name}
-                  loading="lazy"
-                  className="h-full w-full max-h-[90%] max-w-[94%] object-contain filter group-hover:scale-108 transition-transform duration-300"
-                />
-              </div>
-            ))}
-          </div>
+          {row1List.length > 0 && (
+            <div className="flex w-max animate-marquee hover:[animation-play-state:paused] gap-5 sm:gap-7 items-center">
+              {row1List.map((partner, index) => {
+                const CardWrapper = partner.website_url ? "a" : "div";
+                const wrapperProps = partner.website_url
+                  ? {
+                      href: partner.website_url,
+                      target: "_blank",
+                      rel: "noopener noreferrer",
+                    }
+                  : {};
+
+                return (
+                  <CardWrapper
+                    key={`row1-${partner.name}-${index}`}
+                    {...wrapperProps}
+                    title={partner.name}
+                    className="group flex items-center justify-center w-56 sm:w-64 h-28 sm:h-32 p-3 sm:p-4 rounded-2xl bg-white border border-custom-gray/10 shadow-md hover:shadow-[0_0_25px_rgba(252,163,17,0.3)] hover:border-custom-amber/60 transition-all duration-300 transform hover:-translate-y-1 cursor-pointer shrink-0 overflow-hidden"
+                  >
+                    <img
+                      src={partner.src}
+                      alt={partner.name}
+                      loading="lazy"
+                      className="h-full w-full max-h-[90%] max-w-[94%] object-contain filter group-hover:scale-108 transition-transform duration-300"
+                    />
+                  </CardWrapper>
+                );
+              })}
+            </div>
+          )}
 
           {/* Row 2 — Moving Right (Reverse) */}
-          <div className="flex w-max animate-marquee-reverse hover:[animation-play-state:paused] gap-5 sm:gap-7 items-center">
-            {row2List.map((partner, index) => (
-              <div
-                key={`row2-${partner.name}-${index}`}
-                className="group flex items-center justify-center w-56 sm:w-64 h-28 sm:h-32 p-3 sm:p-4 rounded-2xl bg-white border border-custom-gray/10 shadow-md hover:shadow-[0_0_25px_rgba(252,163,17,0.3)] hover:border-custom-amber/60 transition-all duration-300 transform hover:-translate-y-1 cursor-pointer shrink-0 overflow-hidden"
-              >
-                <img
-                  src={partner.src}
-                  alt={partner.name}
-                  loading="lazy"
-                  className="h-full w-full max-h-[90%] max-w-[94%] object-contain filter group-hover:scale-108 transition-transform duration-300"
-                />
-              </div>
-            ))}
-          </div>
+          {row2List.length > 0 && (
+            <div className="flex w-max animate-marquee-reverse hover:[animation-play-state:paused] gap-5 sm:gap-7 items-center">
+              {row2List.map((partner, index) => {
+                const CardWrapper = partner.website_url ? "a" : "div";
+                const wrapperProps = partner.website_url
+                  ? {
+                      href: partner.website_url,
+                      target: "_blank",
+                      rel: "noopener noreferrer",
+                    }
+                  : {};
+
+                return (
+                  <CardWrapper
+                    key={`row2-${partner.name}-${index}`}
+                    {...wrapperProps}
+                    title={partner.name}
+                    className="group flex items-center justify-center w-56 sm:w-64 h-28 sm:h-32 p-3 sm:p-4 rounded-2xl bg-white border border-custom-gray/10 shadow-md hover:shadow-[0_0_25px_rgba(252,163,17,0.3)] hover:border-custom-amber/60 transition-all duration-300 transform hover:-translate-y-1 cursor-pointer shrink-0 overflow-hidden"
+                  >
+                    <img
+                      src={partner.src}
+                      alt={partner.name}
+                      loading="lazy"
+                      className="h-full w-full max-h-[90%] max-w-[94%] object-contain filter group-hover:scale-108 transition-transform duration-300"
+                    />
+                  </CardWrapper>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
     </section>

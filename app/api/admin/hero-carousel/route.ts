@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient as createServerSupabase } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
 import { validateImageFile, MAX_CAROUSEL_SIZE_BYTES } from "@/lib/validation/fileUpload";
+import { compressImageBuffer } from "@/lib/utils/serverImageCompressor";
 
 // Helper to check if current logged in user is admin
 async function verifyAdmin() {
@@ -93,7 +94,10 @@ export async function POST(request: Request) {
           return NextResponse.json({ error: validation.error }, { status: validation.status });
         }
 
-        const { buffer, detectedMime, extension } = validation;
+        const { buffer: rawBuffer } = validation;
+        // Compress using server-side Sharp utility (preserves aspect ratio, no crop)
+        const { buffer, contentType, extension } = await compressImageBuffer(rawBuffer);
+
         const fileName = `hero_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${extension}`;
         const filePath = `carousel/${fileName}`;
 
@@ -107,7 +111,7 @@ export async function POST(request: Request) {
         const { error: uploadError } = await client.storage
           .from("hero-carousel")
           .upload(filePath, buffer, {
-            contentType: detectedMime, // use validated MIME, not client-supplied
+            contentType,
             upsert: true,
           });
 

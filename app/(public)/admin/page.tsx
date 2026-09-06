@@ -57,6 +57,7 @@ import {
   Trophy,
   Megaphone,
   Pin,
+  Handshake,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { compressImage } from "@/lib/utils/imageCompressor";
@@ -73,6 +74,7 @@ import CalendarManager from "@/components/admin/CalendarManager";
 import MemberPoleMultiSelect from "@/components/admin/MemberPoleMultiSelect";
 import TestimonialsManager from "@/components/admin/TestimonialsManager";
 import AnnuaireManager from "@/components/admin/AnnuaireManager";
+import PartnersManager from "@/components/admin/PartnersManager";
 
 import Toast, { ToastMessage } from "@/components/ui/Toast";
 import ConfirmModal from "@/components/ui/ConfirmModal";
@@ -1038,6 +1040,7 @@ export default function AdminDashboardPage() {
             {activeTab === "stats" && <Trophy className="w-5 h-5 text-[#fca311]" />}
             {activeTab === "annonces" && <Megaphone className="w-5 h-5 text-[#fca311]" />}
             {activeTab === "temoignages" && <MessageSquare className="w-5 h-5 text-[#fca311]" />}
+            {activeTab === "partenaires" && <Handshake className="w-5 h-5 text-[#fca311]" />}
             {["contenu", "parametres"].includes(activeTab) && (
               <Wrench className="w-5 h-5 text-[#fca311]" />
             )}
@@ -1066,6 +1069,8 @@ export default function AdminDashboardPage() {
                 ? "Annonces & Posts"
                 : activeTab === "temoignages"
                 ? "Gestion des Témoignages"
+                : activeTab === "partenaires"
+                ? "Partenaires & Sponsors"
                 : activeTab === "hero"
                 ? "Hero Carousel"
                 : "CGI ENIT"}
@@ -2360,6 +2365,9 @@ export default function AdminDashboardPage() {
           {/* TAB: TEMOIGNAGES */}
           {activeTab === "temoignages" && <TestimonialsManager onShowToast={addToast} />}
 
+          {/* TAB: PARTENAIRES */}
+          {activeTab === "partenaires" && <PartnersManager onNotify={addToast} />}
+
           {/* MEMBER PROFILE & DETAILS MODAL */}
           <AnimatePresence>
             {selectedMemberForDetails && (
@@ -2774,6 +2782,7 @@ export default function AdminDashboardPage() {
           {/* FALLBACK FOR UNIMPLEMENTED TABS */}
           {activeTab !== "invitations" &&
             activeTab !== "membres" &&
+            activeTab !== "annuaire" &&
             activeTab !== "stats" &&
             activeTab !== "visites" &&
             activeTab !== "ressources" &&
@@ -2782,6 +2791,8 @@ export default function AdminDashboardPage() {
             activeTab !== "opportunites" &&
             activeTab !== "activities" &&
             activeTab !== "annonces" &&
+            activeTab !== "temoignages" &&
+            activeTab !== "partenaires" &&
             activeTab !== "calendrier" &&
             activeTab !== "hero" &&
             activeTab !== "parametres" && (

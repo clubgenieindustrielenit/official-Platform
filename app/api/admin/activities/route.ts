@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient as createServerSupabase } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
+import { compressImageBuffer } from "@/lib/utils/serverImageCompressor";
 
 type ManageableRole = "admin" | "bureau";
 
@@ -49,6 +50,7 @@ async function verifyCanManage(): Promise<
 
 /**
  * Uploads multiple files to activity-images storage bucket.
+ * Compresses images on the server before storage (preserves aspect ratio, no crop).
  * Returns array of public URLs.
  */
 async function uploadFiles(
@@ -65,16 +67,19 @@ async function uploadFiles(
 
   for (const file of files) {
     if (!file || file.size === 0) continue;
-    const fileExt = file.name.split(".").pop() || "jpg";
-    const fileName = `act_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
-    const filePath = `activities/${fileName}`;
     const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    const rawBuffer = Buffer.from(arrayBuffer);
+
+    // Compress using server-side Sharp utility (preserves aspect ratio, no crop)
+    const { buffer, contentType, extension } = await compressImageBuffer(rawBuffer);
+
+    const fileName = `act_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${extension}`;
+    const filePath = `activities/${fileName}`;
 
     const { error: uploadError } = await client.storage
       .from("activity-images")
       .upload(filePath, buffer, {
-        contentType: file.type || "image/jpeg",
+        contentType,
         upsert: true,
       });
 
@@ -197,20 +202,31 @@ export async function POST(request: Request) {
       );
     }
 
+    function getActivityType(cat: string): "event" | "visit" | "formation" {
+      if (cat === "Visite") return "visit";
+      if (cat === "Formation") return "formation";
+      return "event";
+    }
+
+    const finalDescription = content && content.trim() && content.trim() !== description.trim()
+      ? `${description.trim()}\n\n${content.trim()}`
+      : description.trim();
+
     const imageUrl = photoUrls[0] || "";
 
     const { data: newActivity, error: insertError } = await (client as any)
       .from("activities")
       .insert({
-        title,
-        description,
-        content,
+        title: title.trim(),
+        description: finalDescription,
         category,
-        date,
-        location,
-        status,
+        type: getActivityType(category),
+        date: date || new Date().toISOString(),
+        date_start: date || new Date().toISOString(),
+        location: location || "",
+        status: status || "published",
         image_url: imageUrl,
-        photo_urls: photoUrls,
+        cover_image_url: imageUrl,
         created_by: user?.id,
       })
       .select()
@@ -319,21 +335,31 @@ export async function PUT(request: Request) {
       }
     }
 
+    function getActivityType(cat: string): "event" | "visit" | "formation" {
+      if (cat === "Visite") return "visit";
+      if (cat === "Formation") return "formation";
+      return "event";
+    }
+
+    const finalDescription = content && content.trim() && content.trim() !== description.trim()
+      ? `${description.trim()}\n\n${content.trim()}`
+      : description.trim();
+
     const imageUrl = photoUrls[0] || "";
 
     const { data: updatedActivity, error: updateError } = await (client as any)
       .from("activities")
       .update({
-        title,
-        description,
-        content,
+        title: title.trim(),
+        description: finalDescription,
         category,
-        date,
-        location,
-        status,
+        type: getActivityType(category),
+        date: date || new Date().toISOString(),
+        date_start: date || new Date().toISOString(),
+        location: location || "",
+        status: status || "published",
         image_url: imageUrl,
-        photo_urls: photoUrls,
-        updated_at: new Date().toISOString(),
+        cover_image_url: imageUrl,
       })
       .eq("id", id)
       .select()
@@ -373,7 +399,7 @@ export async function DELETE(request: Request) {
     // Fetch the activity to check ownership + get photo URLs for cleanup
     const { data: record } = await (client as any)
       .from("activities")
-      .select("created_by, image_url, photo_urls")
+      .select("created_by, image_url, cover_image_url")
       .eq("id", id)
       .maybeSingle();
 
@@ -393,7 +419,7 @@ export async function DELETE(request: Request) {
 
     // Clean up storage files
     const allUrls: string[] = [
-      ...(Array.isArray(rec.photo_urls) ? rec.photo_urls : []),
+      ...(rec.cover_image_url ? [rec.cover_image_url] : []),
       ...(rec.image_url ? [rec.image_url] : []),
     ];
 
