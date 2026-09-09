@@ -20,6 +20,7 @@ import {
   Megaphone,
   CalendarDays,
   Handshake,
+  MessageSquarePlus,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSiteSettings } from "@/components/providers/SiteSettingsProvider";
@@ -43,6 +44,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
   { id: "opportunites", label: "Opportunités & Stages", icon: Briefcase },
   { id: "activities", label: "Activités du Club", icon: Sparkles },
   { id: "annonces", label: "Annonces & Posts", icon: Megaphone },
+  { id: "feedbacks", label: "Retours & Bugs", icon: MessageSquarePlus },
   { id: "temoignages", label: "Témoignages", icon: MessageSquare },
   { id: "calendrier", label: "Calendrier", icon: CalendarDays },
   { id: "partenaires", label: "Partenaires & Logos", icon: Handshake },
@@ -61,6 +63,7 @@ export const BUREAU_NAV_ITEMS: NavItem[] = [
   { id: "annonces", label: "Annonces & Posts", icon: Megaphone },
   { id: "ressources", label: "Ressources Club", icon: BookOpen },
   { id: "stats", label: "Stats & Classement", icon: Trophy },
+  { id: "feedbacks", label: "Retours & Bugs", icon: MessageSquarePlus },
   { id: "calendrier", label: "Calendrier", icon: CalendarDays },
   { id: "contenu", label: "Contenu du Site", icon: FileText },
   { id: "temoignages", label: "Témoignages", icon: MessageSquare },

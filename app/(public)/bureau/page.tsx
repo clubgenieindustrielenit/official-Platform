@@ -45,6 +45,7 @@ import AnnouncementFormModal from "@/components/admin/AnnouncementFormModal";
 import CalendarManager from "@/components/admin/CalendarManager";
 import ContenuTab from "@/components/admin/ContenuTab";
 import TestimonialsTab from "@/components/admin/TestimonialsTab";
+import FeedbacksTab from "@/components/admin/FeedbacksTab";
 
 import Toast, { ToastMessage } from "@/components/ui/Toast";
 import ConfirmModal from "@/components/ui/ConfirmModal";
@@ -709,6 +710,14 @@ export default function BureauPage() {
 
           {/* TAB 12: TEMOIGNAGES */}
           {activeTab === "temoignages" && <TestimonialsTab addToast={addToast} />}
+
+          {/* TAB 13: RETOURS & BUGS */}
+          {activeTab === "feedbacks" && (
+            <FeedbacksTab
+              addToast={addToast}
+              openConfirmModal={(cfg) => setModalConfig({ ...cfg, isOpen: true })}
+            />
+          )}
 
         </main>
       </div>

@@ -302,6 +302,11 @@ export default function EditProfileModal({
           .upload(cvPath, cvFile, { upsert: true });
 
         if (cvUploadErr) {
+          if (cvUploadErr.message?.includes("Bucket not found") || (cvUploadErr as any)?.statusCode === "404") {
+            throw new Error(
+              "Le dossier de stockage 'cvs' n'existe pas dans Supabase Storage. Veuillez exécuter le fichier de migration SQL '20270104000000_create_cvs_storage_bucket.sql' ou créer le bucket public 'cvs' dans la console Supabase."
+            );
+          }
           throw new Error(`Erreur lors du téléversement du CV : ${cvUploadErr.message}`);
         }
 
@@ -368,12 +373,12 @@ export default function EditProfileModal({
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-y-auto">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md overflow-y-auto">
         <motion.div
           initial={{ opacity: 0, scale: 0.95, y: 15 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 15 }}
-          className="bg-[#141515] border border-[#333535] rounded-3xl p-6 sm:p-8 max-w-2xl w-full shadow-2xl my-8 relative text-white"
+          className="bg-[#141515] border border-[#333535] rounded-3xl p-5 sm:p-8 max-w-2xl w-full max-h-[92vh] overflow-y-auto touch-scroll shadow-2xl my-auto relative text-white"
         >
           {/* Header */}
           <div className="flex items-center justify-between pb-4 mb-6 border-b border-[#2a2c2c]">

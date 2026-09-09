@@ -34,6 +34,8 @@ type UpcomingRegistration = {
   status: 'confirmed' | 'waitlisted'
 }
 
+import { getRoleLabel } from '@/lib/types/roles'
+
 export default async function DashboardPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -52,7 +54,7 @@ export default async function DashboardPage() {
     announcementsRes,
     agendaRes
   ] = await Promise.all([
-    supabase.from('profiles').select('points_total').eq('id', userId).maybeSingle(),
+    supabase.from('profiles').select('points_total, role, statut_membre').eq('id', userId).maybeSingle(),
     supabase.from('profiles').select('*', { count: 'exact', head: true }),
     supabase.from('event_registrations').select('activities(*), status').eq('user_id', userId).in('status', ['confirmed', 'waitlisted']).gt('activities.date_start', new Date().toISOString()).order('activities.date_start', { ascending: true }).limit(2),
     supabase.from('projects').select('id, title, progress, status, lead_id, poles(name), project_members(user_id)').neq('status', 'done').order('created_at', { ascending: false }).limit(4),
@@ -60,7 +62,7 @@ export default async function DashboardPage() {
     supabase.from('activities').select('id, title, type, date_start').gt('date_start', new Date().toISOString()).lt('date_start', inSevenDays.toISOString()).order('date_start', { ascending: true })
   ])
 
-  const profileData = profileRes.data as { points_total?: number } | null
+  const profileData = profileRes.data as { points_total?: number; role?: string; statut_membre?: string } | null
   const totalMembers = membersRes.count ?? 0
   
   const upcomingRegs = (upcomingRegsRes.data ?? []) as unknown as UpcomingRegistration[]
@@ -89,7 +91,7 @@ export default async function DashboardPage() {
           <div className="space-y-2">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-xl bg-[#fca311]/10 border border-[#fca311]/20 text-[#fca311] text-xs font-bold uppercase tracking-wider">
               <Zap className="w-3.5 h-3.5" />
-              <span>Espace Membre Actif</span>
+              <span>Espace {getRoleLabel(profileData?.role, profileData?.statut_membre)}</span>
             </div>
             <h1 className="font-display text-2xl sm:text-4xl font-extrabold text-white tracking-tight">
               Tableau de Bord

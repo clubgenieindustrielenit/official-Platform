@@ -21,7 +21,7 @@ export default function DataTable<T extends { id: string | number }>({
   emptyMessage = "Aucune donnée disponible",
 }: DataTableProps<T>) {
   return (
-    <div className="w-full overflow-x-auto rounded-2xl border border-[#333535] bg-[#14213d]/40 backdrop-blur-md">
+    <div className="w-full overflow-x-auto touch-scroll rounded-2xl border border-[#333535] bg-[#14213d]/40 backdrop-blur-md">
       <table className="w-full text-left text-sm border-collapse min-w-[600px]">
         <thead>
           <tr className="bg-[#282a2b] border-b border-[#333535] text-[#e2e2e2]">

@@ -1,9 +1,10 @@
-export type Role = 'admin' | 'membre_bureau' | 'membre_actif'
+export type Role = 'admin' | 'membre_bureau' | 'membre_actif' | 'membre_senior'
 
 export const ROLES = {
   ADMIN: 'admin',
   MEMBRE_BUREAU: 'membre_bureau',
   MEMBRE_ACTIF: 'membre_actif',
+  MEMBRE_SENIOR: 'membre_senior',
 } as const
 
 /**
@@ -23,20 +24,17 @@ export function isAdmin(role?: string | null): boolean {
 }
 
 /**
- * Returns a user-friendly label for any role.
+ * Returns a user-friendly label for any role or member status.
  */
-export function getRoleLabel(role?: string | null): string {
-  switch (role) {
-    case 'admin':
-      return 'Administrateur'
-    case 'membre_bureau':
-    case 'bureau':
-    case 'pole_lead':
-      return 'Membre du Bureau'
-    case 'membre_actif':
-    case 'member':
-    case 'membre':
-    default:
-      return 'Membre Actif'
-  }
+export function getRoleLabel(role?: string | null, statutMembre?: string | null): string {
+  const normRole = role?.toLowerCase()
+  const normStatut = statutMembre?.toLowerCase()
+
+  if (normRole === 'admin') return 'Administrateur'
+  if (normRole === 'membre_bureau' || normRole === 'bureau' || normRole === 'pole_lead') return 'Membre du Bureau'
+  if (normRole === 'membre_senior' || normRole === 'senior' || normRole === 'senior_member' || normStatut === 'senior') return 'Membre Senior'
+  if (normStatut === 'alumni') return 'Alumni'
+
+  return 'Membre Actif'
 }
+

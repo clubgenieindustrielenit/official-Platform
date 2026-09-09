@@ -77,6 +77,7 @@ import MemberPoleMultiSelect from "@/components/admin/MemberPoleMultiSelect";
 import TestimonialsManager from "@/components/admin/TestimonialsManager";
 import AnnuaireManager from "@/components/admin/AnnuaireManager";
 import PartnersManager from "@/components/admin/PartnersManager";
+import FeedbacksTab from "@/components/admin/FeedbacksTab";
 
 import Toast, { ToastMessage } from "@/components/ui/Toast";
 import ConfirmModal from "@/components/ui/ConfirmModal";
@@ -2368,6 +2369,14 @@ export default function AdminDashboardPage() {
                 onSaved={() => { fetchAnnouncements(); addToast("success", editingAnnouncement ? "Annonce mise à jour !" : "Annonce publiée !"); }}
               />
             </div>
+          )}
+
+          {/* TAB: FEEDBACKS / BUGS & SUGGESTIONS */}
+          {activeTab === "feedbacks" && (
+            <FeedbacksTab
+              addToast={addToast}
+              openConfirmModal={(cfg) => setModalConfig({ ...cfg, isOpen: true })}
+            />
           )}
 
           {/* TAB: TEMOIGNAGES */}

@@ -103,7 +103,7 @@ export default function ProfilClient({
                     : "Membre ENIT"}
                 </span>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-custom-amber/15 text-custom-amber border border-custom-amber/30">
-                  {getRoleLabel(initialProfile?.role)}
+                  {getRoleLabel(initialProfile?.role, initialProfile?.statut_membre)}
                 </span>
               </div>
             </div>

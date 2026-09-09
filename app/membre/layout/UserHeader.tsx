@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
@@ -18,6 +18,30 @@ export default function UserHeader({ profile }: { profile: Profile }) {
   const supabase = createClient()
   const { t } = useI18n()
   const [loggingOut, setLoggingOut] = useState(false)
+  const [isVisible, setIsVisible] = useState(true)
+  const lastScrollY = useRef(0)
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY
+      const diff = currentScrollY - lastScrollY.current
+
+      if (currentScrollY <= 20) {
+        setIsVisible(true)
+      } else if (diff > 6 && currentScrollY > 60) {
+        // Scrolling down -> slide under navbar
+        setIsVisible(false)
+      } else if (diff < -6) {
+        // Scrolling up -> show again
+        setIsVisible(true)
+      }
+
+      lastScrollY.current = currentScrollY
+    }
+
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
 
   const handleLogout = async () => {
     setLoggingOut(true)
@@ -27,7 +51,16 @@ export default function UserHeader({ profile }: { profile: Profile }) {
   }
 
   return (
-    <header className="sticky top-[76px] z-20 flex h-16 items-center justify-between border-b border-[#2a2c2c] bg-[#0d0e0e]/90 px-4 backdrop-blur-md lg:px-8">
+    <motion.header
+      initial={false}
+      animate={{
+        y: isVisible ? 0 : -85,
+        opacity: isVisible ? 1 : 0,
+      }}
+      transition={{ duration: 0.28, ease: [0.25, 1, 0.5, 1] }}
+      style={{ pointerEvents: isVisible ? 'auto' : 'none' }}
+      className="sticky top-[76px] z-20 flex h-16 items-center justify-between border-b border-[#2a2c2c] bg-[#0d0e0e]/95 px-4 backdrop-blur-md lg:px-8"
+    >
       <Link 
         href="/membre/profil"
         className="flex items-center gap-3 group p-1 -ml-1 rounded-xl hover:bg-white/[0.04] transition-colors"
@@ -38,12 +71,12 @@ export default function UserHeader({ profile }: { profile: Profile }) {
             {profile.first_name?.[0] || 'U'}{profile.last_name?.[0] || 'A'}
            </span>
         </div>
-        <div>
-          <p className="text-xs font-bold text-white leading-none group-hover:text-[#fca311] transition-colors">
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-bold text-white leading-none group-hover:text-[#fca311] transition-colors truncate max-w-[120px] xs:max-w-[180px] sm:max-w-none">
             {profile.first_name} {profile.last_name}
           </p>
-          <p className="text-[10px] text-[#666] leading-none mt-1">
-            {profile.poles?.name ? `Pôle ${profile.poles.name.replace(/^Pôle\s+/i, '')}` : 'Membre ENIT'} · {getRoleLabel(profile.role)}
+          <p className="text-[10px] text-[#666] leading-none mt-1 truncate max-w-[120px] xs:max-w-[180px] sm:max-w-none">
+            {profile.poles?.name ? `Pôle ${profile.poles.name.replace(/^Pôle\s+/i, '')}` : 'Membre ENIT'} · {getRoleLabel(profile.role, profile.statut_membre)}
           </p>
         </div>
       </Link>
@@ -90,6 +123,7 @@ export default function UserHeader({ profile }: { profile: Profile }) {
           )}
         </button>
       </div>
-    </header>
+
+    </motion.header>
   )
 }

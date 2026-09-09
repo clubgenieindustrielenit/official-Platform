@@ -6,6 +6,7 @@ import UserHeader from './layout/UserHeader'
 
 import { SiteSettingsProvider } from '@/components/providers/SiteSettingsProvider'
 import Navbar from '@/components/Navbar'
+import FeedbackFloatingButton from '@/components/feedback/FeedbackFloatingButton'
 
 export default async function MembreLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -49,6 +50,9 @@ export default async function MembreLayout({ children }: { children: React.React
 
         {/* Navigation Mobile */}
         <BottomNav />
+
+        {/* Bouton Flottant de Feedback (Bugs & Suggestions) */}
+        <FeedbackFloatingButton />
       </div>
     </SiteSettingsProvider>
   )

@@ -127,6 +127,24 @@ export const calendarEventSchema = z
   .strict();
 
 // ---------------------------------------------------------------------------
+// /api/feedback — POST & PATCH
+// ---------------------------------------------------------------------------
+export const createFeedbackSchema = z
+  .object({
+    type: z.enum(["bug", "suggestion", "autre"]).default("bug"),
+    description: z.string().min(5, "La description doit contenir au moins 5 caractères.").max(3000),
+    page_url: z.string().max(500),
+  })
+  .strict();
+
+export const updateFeedbackStatusSchema = z
+  .object({
+    id: z.string().uuid("ID de feedback invalide."),
+    status: z.enum(["nouveau", "en_cours", "resolu", "archive"]),
+  })
+  .strict();
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 

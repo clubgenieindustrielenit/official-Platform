@@ -35,6 +35,7 @@ import { useSiteSettings } from "@/components/providers/SiteSettingsProvider";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter, usePathname } from "next/navigation";
 import { useI18n } from "@/lib/i18n/context";
+import { getRoleLabel } from "@/lib/types/roles";
 import EditProfileModal, { ProfileData } from "@/components/membre/EditProfileModal";
 
 export default function Navbar() {
@@ -93,15 +94,13 @@ export default function Navbar() {
       setProfile(prof || null);
 
       const role = prof?.role || u.user_metadata?.role || "membre_actif";
-      let roleName = "Membre Actif";
+      let roleName = getRoleLabel(role, prof?.statut_membre);
       let href = "/membre";
 
       if (role === "admin") {
         href = "/admin";
-        roleName = "Admin";
       } else if (role === "bureau" || role === "membre_bureau") {
         href = "/bureau";
-        roleName = "Bureau";
       }
       setDashboardHref(href);
       setUserRole(roleName);

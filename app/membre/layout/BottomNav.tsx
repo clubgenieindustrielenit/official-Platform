@@ -1,7 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, CalendarDays, Wrench, Megaphone } from 'lucide-react'
+import { LayoutDashboard, CalendarRange, Factory, Megaphone } from 'lucide-react'
 
 export default function BottomNav() {
   const pathname = usePathname()
@@ -9,8 +9,8 @@ export default function BottomNav() {
   const links = [
     { href: '/membre', label: 'Accueil', icon: LayoutDashboard },
     { href: '/membre/annonces', label: 'Annonces', icon: Megaphone },
-    { href: '/membre/evenements', label: 'Événements', icon: CalendarDays },
-    { href: '/membre/projets', label: 'Projets', icon: Wrench },
+    { href: '/membre/visites', label: 'Visites', icon: Factory },
+    { href: '/membre/calendrier', label: 'Calendrier', icon: CalendarRange },
   ]
 
   return (
