@@ -46,8 +46,24 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
   { id: "temoignages", label: "Témoignages", icon: MessageSquare },
   { id: "calendrier", label: "Calendrier", icon: CalendarDays },
   { id: "partenaires", label: "Partenaires & Logos", icon: Handshake },
+  { id: "contenu", label: "Contenu du Site", icon: FileText },
   { id: "hero", label: "Hero Carousel", icon: Image },
   { id: "parametres", label: "Logo & Marque", icon: Settings },
+];
+
+export const BUREAU_NAV_ITEMS: NavItem[] = [
+  { id: "membres", label: "Membres & Statuts", icon: Users },
+  { id: "activities", label: "Activités du Club", icon: Sparkles },
+  { id: "projets", label: "Gestion des Projets", icon: FolderGit2 },
+  { id: "visites", label: "Visites d'Entreprise", icon: Factory },
+  { id: "formations", label: "Gestion des Formations", icon: GraduationCap },
+  { id: "opportunites", label: "Opportunités & Stages", icon: Briefcase },
+  { id: "annonces", label: "Annonces & Posts", icon: Megaphone },
+  { id: "ressources", label: "Ressources Club", icon: BookOpen },
+  { id: "stats", label: "Stats & Classement", icon: Trophy },
+  { id: "calendrier", label: "Calendrier", icon: CalendarDays },
+  { id: "contenu", label: "Contenu du Site", icon: FileText },
+  { id: "temoignages", label: "Témoignages", icon: MessageSquare },
 ];
 
 interface SidebarProps {
@@ -56,6 +72,8 @@ interface SidebarProps {
   onSignOut: () => void;
   isOpen?: boolean;
   onClose?: () => void;
+  items?: NavItem[];
+  title?: string;
 }
 
 export default function Sidebar({
@@ -64,6 +82,8 @@ export default function Sidebar({
   onSignOut,
   isOpen = false,
   onClose,
+  items = ADMIN_NAV_ITEMS,
+  title = "CGI ENIT Admin",
 }: SidebarProps) {
   const { logoUrl } = useSiteSettings();
 
@@ -75,7 +95,7 @@ export default function Sidebar({
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl overflow-hidden bg-black/90 border border-custom-amber/40 p-1 flex items-center justify-center shrink-0 shadow-[0_0_15px_rgba(252,163,17,0.15)]">
               <img
-                src="/logo-blanc.png"
+                src={logoUrl}
                 alt="Club Génie Industriel ENIT"
                 className="w-full h-full object-contain"
               />
@@ -90,7 +110,6 @@ export default function Sidebar({
               <p className="text-[10px] text-[#777] truncate">Génie Industriel ENIT</p>
             </div>
           </div>
-
           {isMobile && (
             <button
               onClick={onClose}
@@ -103,14 +122,14 @@ export default function Sidebar({
         </div>
 
         <div className="pt-3 px-1 text-[10px] font-bold uppercase tracking-wider text-[#666] flex items-center justify-between">
-          <span>Navigation Admin</span>
-          <span className="text-[9px] font-mono text-[#555]">{ADMIN_NAV_ITEMS.length} rubriques</span>
+          <span>{title}</span>
+          <span className="text-[9px] font-mono text-[#555]">{items.length} rubriques</span>
         </div>
       </div>
 
       {/* 2. DYNAMIC SCROLLABLE NAVIGATION LIST */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden space-y-1 pr-1 custom-scrollbar">
-        {ADMIN_NAV_ITEMS.map((item) => {
+        {items.map((item) => {
           const Icon = item.icon;
           const isActive = activeItem === item.id;
           return (

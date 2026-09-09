@@ -71,6 +71,8 @@ import ResourcesManager from "@/components/admin/ResourcesManager";
 import LeaderboardStats from "@/components/admin/LeaderboardStats";
 import AnnouncementFormModal from "@/components/admin/AnnouncementFormModal";
 import CalendarManager from "@/components/admin/CalendarManager";
+import ContenuTab from "@/components/admin/ContenuTab";
+import TestimonialsTab from "@/components/admin/TestimonialsTab";
 import MemberPoleMultiSelect from "@/components/admin/MemberPoleMultiSelect";
 import TestimonialsManager from "@/components/admin/TestimonialsManager";
 import AnnuaireManager from "@/components/admin/AnnuaireManager";
@@ -2202,6 +2204,12 @@ export default function AdminDashboardPage() {
 
           {/* TAB: CALENDRIER */}
           {activeTab === "calendrier" && <CalendarManager />}
+
+          {/* TAB: CONTENU DU SITE */}
+          {activeTab === "contenu" && <ContenuTab addToast={addToast} />}
+
+          {/* TAB: TEMOIGNAGES */}
+          {activeTab === "temoignages" && <TestimonialsTab addToast={addToast} />}
 
           {/* TAB: ANNONCES & POSTS */}
           {activeTab === "annonces" && (
