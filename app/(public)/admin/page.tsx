@@ -725,19 +725,23 @@ export default function AdminDashboardPage() {
     setModalConfig({
       isOpen: true,
       title: "Supprimer le membre ?",
-      message: `Êtes-vous sûr de vouloir retirer ${member.email} du club ? Son accès sera révoqué.`,
+      message: `Êtes-vous sûr de vouloir retirer ${member.email} du club ? Son compte sera définitivement supprimé et il ne pourra plus se connecter.`,
       confirmText: "Supprimer le membre",
       variant: "danger",
       onConfirm: async () => {
         try {
-          const { error } = await supabase
-            .from("profiles")
-            .delete()
-            .eq("id", member.id);
+          // Calls the server-side route which uses the service role key to
+          // delete the user from auth.users. The ON DELETE CASCADE on profiles
+          // handles DB cleanup automatically — no manual profile delete needed.
+          const res = await fetch("/api/admin/members/delete", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ user_id: member.id }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || "Erreur lors de la suppression.");
 
-          if (error) throw error;
-
-          addToast("success", "Membre supprimé avec succès.");
+          addToast("success", "Membre supprimé définitivement.");
           fetchData();
         } catch (err: any) {
           addToast("error", err.message || "Erreur lors de la suppression.");

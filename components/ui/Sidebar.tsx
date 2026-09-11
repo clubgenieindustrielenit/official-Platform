@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useRef, useState, useCallback, useEffect } from "react";
 import {
   Mail,
   Users,
@@ -21,9 +21,14 @@ import {
   CalendarDays,
   Handshake,
   MessageSquarePlus,
+  GripVertical,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSiteSettings } from "@/components/providers/SiteSettingsProvider";
+
+const SIDEBAR_MIN_WIDTH = 240;
+const SIDEBAR_MAX_WIDTH = 480;
+const SIDEBAR_STORAGE_KEY = "admin-sidebar-width";
 
 export interface NavItem {
   id: string;
@@ -89,6 +94,63 @@ export default function Sidebar({
   title = "CGI ENIT Admin",
 }: SidebarProps) {
   const { logoUrl } = useSiteSettings();
+
+  // ── Resizable sidebar (desktop only) ────────────────────────────────────
+  const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
+    if (typeof window === "undefined") return SIDEBAR_MIN_WIDTH;
+    const saved = localStorage.getItem(SIDEBAR_STORAGE_KEY);
+    const parsed = saved ? parseInt(saved, 10) : SIDEBAR_MIN_WIDTH;
+    return Math.min(Math.max(parsed, SIDEBAR_MIN_WIDTH), SIDEBAR_MAX_WIDTH);
+  });
+  const isDragging = useRef(false);
+  const startX = useRef(0);
+  const startWidth = useRef(0);
+
+  const onMouseMove = useCallback((e: MouseEvent) => {
+    if (!isDragging.current) return;
+    const delta = e.clientX - startX.current;
+    const newWidth = Math.min(
+      Math.max(startWidth.current + delta, SIDEBAR_MIN_WIDTH),
+      SIDEBAR_MAX_WIDTH
+    );
+    setSidebarWidth(newWidth);
+  }, []);
+
+  const onMouseUp = useCallback(() => {
+    if (!isDragging.current) return;
+    isDragging.current = false;
+    document.body.style.cursor = "";
+    document.body.style.userSelect = "";
+    setSidebarWidth((w) => {
+      localStorage.setItem(SIDEBAR_STORAGE_KEY, String(w));
+      return w;
+    });
+    window.removeEventListener("mousemove", onMouseMove);
+    window.removeEventListener("mouseup", onMouseUp);
+  }, [onMouseMove]);
+
+  const onHandleMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      isDragging.current = true;
+      startX.current = e.clientX;
+      startWidth.current = sidebarWidth;
+      document.body.style.cursor = "col-resize";
+      document.body.style.userSelect = "none";
+      window.addEventListener("mousemove", onMouseMove);
+      window.addEventListener("mouseup", onMouseUp);
+    },
+    [sidebarWidth, onMouseMove, onMouseUp]
+  );
+
+  useEffect(() => {
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+  }, [onMouseMove, onMouseUp]);
+  // ────────────────────────────────────────────────────────────────────────
+
 
   const renderContent = (isMobile = false) => (
     <div className="flex flex-col h-full overflow-hidden">
@@ -191,9 +253,24 @@ export default function Sidebar({
 
   return (
     <>
-      {/* Desktop Sidebar (md et +) - Fixed height, sticky top, smooth inner scroll */}
-      <aside className="hidden md:flex flex-col w-[240px] bg-[#1a1c1c] border-r border-[#2a2c2c] h-screen sticky top-0 p-4 shrink-0 overflow-hidden z-30 shadow-lg">
+      {/* Desktop Sidebar (md et +) - Fixed height, sticky top, smooth inner scroll, resizable */}
+      <aside
+        className="hidden md:flex flex-col bg-[#1a1c1c] border-r border-[#2a2c2c] h-screen sticky top-0 p-4 shrink-0 overflow-hidden z-30 shadow-lg relative"
+        style={{ width: sidebarWidth }}
+      >
         {renderContent(false)}
+
+        {/* Resize handle */}
+        <div
+          onMouseDown={onHandleMouseDown}
+          className="group absolute top-0 right-0 bottom-0 w-3 cursor-col-resize flex items-center justify-center z-50"
+          title="Redimensionner la barre latérale"
+        >
+          {/* Visible grip line */}
+          <div className="w-[2px] h-full bg-[#2a2c2c] group-hover:bg-custom-amber/50 transition-colors duration-150" />
+          {/* Grip icon centred */}
+          <GripVertical className="absolute w-3 h-3 text-[#555] group-hover:text-custom-amber/70 transition-colors duration-150" />
+        </div>
       </aside>
 
       {/* Mobile Drawer (< md) */}
