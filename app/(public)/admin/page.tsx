@@ -683,15 +683,22 @@ export default function AdminDashboardPage() {
   ) => {
     try {
       const primaryPoleId = newPoleIds.length > 0 ? newPoleIds[0] : null;
-      const { error } = await supabase
-        .from("profiles")
-        .update({
+
+      // Call dedicated API route with service role to bypass RLS and notify member
+      const res = await fetch("/api/admin/members/pole", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: member.id,
           pole_ids: newPoleIds,
           pole_id: primaryPoleId,
-        })
-        .eq("id", member.id);
+        }),
+      });
 
-      if (error) throw error;
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Erreur lors de l'assignation des pôles.");
+      }
 
       addToast("success", `Pôles de ${member.first_name || member.email} mis à jour avec succès !`);
       
@@ -699,14 +706,14 @@ export default function AdminDashboardPage() {
       setMembers((prev) =>
         prev.map((m) =>
           m.id === member.id
-            ? { ...m, pole_ids: newPoleIds, pole_id: primaryPoleId }
+            ? { ...m, pole_ids: newPoleIds, pole_id: primaryPoleId, ...(data.profile ? data.profile : {}) }
             : m
         )
       );
 
       if (selectedMemberForDetails?.id === member.id) {
         setSelectedMemberForDetails((prev) =>
-          prev ? { ...prev, pole_ids: newPoleIds, pole_id: primaryPoleId } : null
+          prev ? { ...prev, pole_ids: newPoleIds, pole_id: primaryPoleId, ...(data.profile ? data.profile : {}) } : null
         );
       }
     } catch (err: any) {

@@ -78,6 +78,7 @@ export default function FormationsManager({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingFormation, setEditingFormation] = useState<FormationRecord | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [modalError, setModalError] = useState<string | null>(null);
 
   // Form states
   const [title, setTitle] = useState("");
@@ -129,6 +130,7 @@ export default function FormationsManager({
 
   const openCreateModal = () => {
     setEditingFormation(null);
+    setModalError(null);
     setTitle("");
     setTrainerName("");
     setLocation("");
@@ -147,6 +149,7 @@ export default function FormationsManager({
 
   const openEditModal = (formation: FormationRecord) => {
     setEditingFormation(formation);
+    setModalError(null);
     setTitle(formation.title || "");
     setTrainerName(formation.trainer_name || "");
     setLocation(formation.location || "");
@@ -178,10 +181,15 @@ export default function FormationsManager({
       formData.append("file", file);
       formData.append("bucket", "activity-images");
 
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+
       const res = await fetch("/api/admin/upload", {
         method: "POST",
         body: formData,
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
 
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Erreur upload image");
@@ -201,6 +209,7 @@ export default function FormationsManager({
     }
 
     setSubmitting(true);
+    setModalError(null);
     try {
       let uploadedUrl = (previewImageUrl && !previewImageUrl.startsWith("blob:")) ? previewImageUrl : null;
       if (imageFile) {
@@ -240,6 +249,7 @@ export default function FormationsManager({
       setIsModalOpen(false);
       fetchFormations();
     } catch (err: any) {
+      setModalError(err.message || "Impossible d'enregistrer la formation.");
       onShowToast("error", err.message || "Impossible d'enregistrer la formation.");
     } finally {
       setSubmitting(false);
@@ -537,6 +547,12 @@ export default function FormationsManager({
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-4">
+                {modalError && (
+                  <div className="p-3.5 bg-red-500/15 border border-red-500/30 rounded-2xl text-red-300 text-xs flex items-center gap-2">
+                    <X className="w-4 h-4 shrink-0 text-red-400" />
+                    <span>{modalError}</span>
+                  </div>
+                )}
                 {/* Title & Trainer */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>

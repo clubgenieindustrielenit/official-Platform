@@ -72,43 +72,32 @@ export default function VisitEnrollmentCard({
       };
       setRegistration(optimisticReg);
 
-      const { error: rpcError } = await supabase.rpc("register_to_activity", {
-        p_activity_id: activity.id,
+      const res = await fetch("/api/activities/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ activity_id: activity.id }),
       });
 
-      if (rpcError) {
-        // Fallback: direct insert into event_registrations
-        const { data: inserted, error: insertError } = await supabase
-          .from("event_registrations")
-          .insert({
-            activity_id: activity.id,
-            user_id: userId,
-            status: isFull ? "waitlisted" : "confirmed",
-          })
-          .select()
-          .maybeSingle();
-
-        if (insertError) {
-          setRegistration(initialRegistration);
-          throw new Error(insertError.message || rpcError.message || "Erreur lors de l'inscription.");
-        }
-        if (inserted) setRegistration(inserted);
-      } else {
-        // Fetch actual registration row
-        const { data: realReg } = await supabase
-          .from("event_registrations")
-          .select("*")
-          .eq("activity_id", activity.id)
-          .eq("user_id", userId)
-          .maybeSingle();
-
-        if (realReg) {
-          setRegistration(realReg);
-        }
+      const data = await res.json();
+      if (!res.ok) {
+        setRegistration(initialRegistration);
+        throw new Error(data.error || "Erreur lors de l'inscription.");
       }
 
-      setRegisteredCount((prev) => prev + 1);
-      setSuccessMessage("Votre inscription à cette visite a été confirmée avec succès !");
+      if (data.registration) {
+        setRegistration(data.registration);
+      }
+      if (data.registeredCount !== undefined) {
+        setRegisteredCount(data.registeredCount);
+      } else {
+        setRegisteredCount((prev) => prev + 1);
+      }
+
+      setSuccessMessage(
+        data.status === "waitlisted"
+          ? "Vous avez été ajouté à la liste d'attente !"
+          : "Votre inscription à cette visite a été confirmée avec succès !"
+      );
     } catch (err: any) {
       setError(err.message || "Impossible de s'inscrire pour le moment.");
     } finally {
@@ -127,24 +116,24 @@ export default function VisitEnrollmentCard({
     setRegistration(null);
 
     try {
-      const { error: rpcError } = await supabase.rpc("cancel_registration", {
-        p_registration_id: registration.id,
-      });
-
-      if (rpcError) {
-        // Fallback: direct delete from event_registrations
-        const { error: deleteError } = await supabase
-          .from("event_registrations")
-          .delete()
-          .eq("id", registration.id);
-
-        if (deleteError) {
-          setRegistration(prevReg);
-          throw new Error(deleteError.message || rpcError.message || "Annulation impossible.");
+      const res = await fetch(
+        `/api/activities/register?activity_id=${activity.id}&id=${registration.id}`,
+        {
+          method: "DELETE",
         }
+      );
+
+      const data = await res.json();
+      if (!res.ok) {
+        setRegistration(prevReg);
+        throw new Error(data.error || "Annulation impossible.");
       }
 
-      setRegisteredCount((prev) => Math.max(0, prev - 1));
+      if (data.registeredCount !== undefined) {
+        setRegisteredCount(data.registeredCount);
+      } else {
+        setRegisteredCount((prev) => Math.max(0, prev - 1));
+      }
       setSuccessMessage("Votre désistement a été pris en compte.");
     } catch (err: any) {
       setError(err.message || "Erreur lors de l'annulation.");

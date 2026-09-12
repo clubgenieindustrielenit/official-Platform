@@ -8,14 +8,67 @@ export default async function CalendrierPage() {
   const supabase = await createClient();
 
   // Fetch all activities (visites, formations, events, AGs) with pole details
-  const { data: activities, error } = await supabase
+  const { data: rawActivities, error } = await supabase
     .from("activities")
     .select("*, poles(id, name)")
-    .order("date_start", { ascending: true });
+    .order("created_at", { ascending: false });
 
   if (error) {
     console.error("Error fetching activities for calendar:", error);
   }
+
+  const activities: CalendarActivity[] = (rawActivities || []).map((a: any) => {
+    let metadata: Record<string, any> = {};
+    if (a.content) {
+      try {
+        const parsed = JSON.parse(a.content);
+        if (parsed && typeof parsed === "object") metadata = parsed;
+      } catch (_) {}
+    }
+
+    const rawType = (a.type || "").toLowerCase();
+    const rawCat = (a.category || "").toLowerCase();
+
+    let type: "visit" | "formation" | "event" = "event";
+    if (rawType === "visit" || rawType === "visite" || rawCat.includes("visit") || a.entreprise) {
+      type = "visit";
+    } else if (
+      rawType === "formation" ||
+      rawCat.includes("formation") ||
+      rawCat.includes("workshop") ||
+      a.trainer_name ||
+      metadata.trainer_name ||
+      metadata._is_formation_meta
+    ) {
+      type = "formation";
+    } else {
+      type = "event";
+    }
+
+    const date_start = a.date_start || a.date || a.created_at || new Date().toISOString();
+    const date_end = a.date_end || metadata.date_end || null;
+    const trainer_name = a.trainer_name || metadata.trainer_name || null;
+    const entreprise = a.entreprise || metadata.entreprise || null;
+    const location = a.location || metadata.location || null;
+
+    return {
+      ...a,
+      id: a.id,
+      title: a.title,
+      description: a.description || null,
+      type,
+      date_start,
+      date_end,
+      trainer_name,
+      entreprise,
+      location,
+      pole_id: a.pole_id || null,
+      poles: a.poles || null,
+    };
+  });
+
+  // Sort by date_start ascending
+  activities.sort((a, b) => new Date(a.date_start).getTime() - new Date(b.date_start).getTime());
 
   return (
     <div className="space-y-8 max-w-6xl mx-auto">
@@ -36,7 +89,7 @@ export default async function CalendrierPage() {
         </div>
       </div>
 
-      <CalendarClient initialActivities={(activities as unknown as CalendarActivity[]) || []} />
+      <CalendarClient initialActivities={activities} />
     </div>
   );
 }

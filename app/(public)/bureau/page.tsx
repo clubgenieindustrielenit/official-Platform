@@ -235,15 +235,26 @@ export default function BureauPage() {
   const handleChangeMemberPoles = async (member: MemberRecord, newPoleIds: string[]) => {
     try {
       const primaryPoleId = newPoleIds.length > 0 ? newPoleIds[0] : null;
-      const { error } = await supabase
-        .from("profiles")
-        .update({ pole_ids: newPoleIds, pole_id: primaryPoleId })
-        .eq("id", member.id);
+      const res = await fetch("/api/admin/members/pole", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: member.id,
+          pole_ids: newPoleIds,
+          pole_id: primaryPoleId,
+        }),
+      });
 
-      if (error) throw error;
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erreur lors de l'assignation.");
+
       addToast("success", `Pôles de ${member.first_name || member.email} mis à jour !`);
       setMembers((prev) =>
-        prev.map((m) => (m.id === member.id ? { ...m, pole_ids: newPoleIds, pole_id: primaryPoleId } : m))
+        prev.map((m) =>
+          m.id === member.id
+            ? { ...m, pole_ids: newPoleIds, pole_id: primaryPoleId, ...(data.profile ? data.profile : {}) }
+            : m
+        )
       );
     } catch (err: any) {
       addToast("error", err.message || "Erreur lors de l'assignation.");

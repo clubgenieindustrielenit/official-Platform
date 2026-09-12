@@ -6,10 +6,10 @@ import { calendarEventSchema, parseBody } from "@/lib/validation/schemas";
 export async function GET() {
   try {
     const supabase = await createClient();
-    const { data: activities, error } = await supabase
+    const { data: rawActivities, error } = await supabase
       .from("activities")
       .select("*, poles(id, name)")
-      .order("date_start", { ascending: true });
+      .order("created_at", { ascending: false });
 
     if (error) {
       console.error("[calendar] GET error:", error);
@@ -19,7 +19,55 @@ export async function GET() {
       );
     }
 
-    return NextResponse.json({ activities: activities || [] });
+    const activities = (rawActivities || []).map((a: any) => {
+      let metadata: Record<string, any> = {};
+      if (a.content) {
+        try {
+          const parsed = JSON.parse(a.content);
+          if (parsed && typeof parsed === "object") metadata = parsed;
+        } catch (_) {}
+      }
+
+      const rawType = (a.type || "").toLowerCase();
+      const rawCat = (a.category || "").toLowerCase();
+
+      let type: "visit" | "formation" | "event" = "event";
+      if (rawType === "visit" || rawType === "visite" || rawCat.includes("visit") || a.entreprise) {
+        type = "visit";
+      } else if (
+        rawType === "formation" ||
+        rawCat.includes("formation") ||
+        rawCat.includes("workshop") ||
+        a.trainer_name ||
+        metadata.trainer_name ||
+        metadata._is_formation_meta
+      ) {
+        type = "formation";
+      } else {
+        type = "event";
+      }
+
+      const date_start = a.date_start || a.date || a.created_at || new Date().toISOString();
+      const date_end = a.date_end || metadata.date_end || null;
+      const trainer_name = a.trainer_name || metadata.trainer_name || null;
+      const entreprise = a.entreprise || metadata.entreprise || null;
+      const location = a.location || metadata.location || null;
+
+      return {
+        ...a,
+        type,
+        date_start,
+        date_end,
+        trainer_name,
+        entreprise,
+        location,
+      };
+    });
+
+    // Sort by date_start ascending
+    activities.sort((a, b) => new Date(a.date_start).getTime() - new Date(b.date_start).getTime());
+
+    return NextResponse.json({ activities });
   } catch (err: unknown) {
     console.error("[calendar] GET unexpected error:", err);
     return NextResponse.json(

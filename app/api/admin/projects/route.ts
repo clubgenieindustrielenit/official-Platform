@@ -1,46 +1,25 @@
 import { NextResponse } from "next/server";
-import { createClient as createServerSupabase } from "@/lib/supabase/server";
-import { createClient } from "@supabase/supabase-js";
-import { isBureauOrAdmin, Role } from "@/lib/types/roles";
+import { verifyCanManage } from "@/lib/supabase/adminAuth";
 
-async function verifyCanManage(): Promise<
-  | { ok: true; user: any; role: Role; client: ReturnType<typeof createClient> }
-  | { ok: false; error: string; status: number }
-> {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  const serverSupabase = await createServerSupabase();
-  const {
-    data: { user },
-  } = await serverSupabase.auth.getUser();
-
-  if (!user) {
-    return { ok: false, error: "Non authentifié.", status: 401 };
+const cleanUuid = (val: any): string | null => {
+  if (typeof val === "string") {
+    const trimmed = val.trim();
+    if (trimmed && trimmed !== "null" && trimmed !== "undefined") {
+      return trimmed;
+    }
   }
+  return null;
+};
 
-  const client = serviceRoleKey
-    ? createClient(supabaseUrl, serviceRoleKey)
-    : serverSupabase;
-
-  const { data: profile } = await (client as any)
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  const role: Role = (profile?.role || user.user_metadata?.role || "membre_actif") as Role;
-
-  if (!isBureauOrAdmin(role)) {
-    return {
-      ok: false,
-      error: "Accès refusé. Seuls l'administration et le bureau peuvent gérer les projets.",
-      status: 403,
-    };
+const cleanDate = (val: any): string | null => {
+  if (!val) return null;
+  if (typeof val === "string") {
+    const trimmed = val.trim();
+    if (!trimmed) return null;
+    return trimmed.includes("T") ? trimmed.split("T")[0] : trimmed;
   }
-
-  return { ok: true, user, role, client: client as any };
-}
+  return null;
+};
 
 // ---------------------------------------------------------------------------
 // GET: Fetch all projects with members, poles, and list of available profiles
@@ -107,39 +86,61 @@ export async function POST(request: Request) {
     const { client } = auth;
     const body = await request.json();
 
-    const { title, description, pole_id, lead_id, deadline, google_form_url, member_ids } = body;
+    const { title, description, pole_id, lead_id, deadline, google_form_url, member_ids, status, progress } = body;
 
     if (!title || !title.trim()) {
       return NextResponse.json({ error: "Le titre du projet est requis." }, { status: 400 });
     }
 
+    const leadIdClean = cleanUuid(lead_id);
+    const poleIdClean = cleanUuid(pole_id);
+    const deadlineClean = cleanDate(deadline);
+
     // 1. Insert Project
-    const { data: project, error: insertError } = await (client as any)
+    const insertPayload: Record<string, any> = {
+      title: title.trim(),
+      description: description?.trim() || null,
+      pole_id: poleIdClean,
+      lead_id: leadIdClean,
+      deadline: deadlineClean,
+      google_form_url: google_form_url?.trim() || null,
+      status: status || "planned",
+      progress: typeof progress === "number" ? progress : 0,
+    };
+
+    let { data: project, error: insertError } = await (client as any)
       .from("projects")
-      .insert({
-        title: title.trim(),
-        description: description?.trim() || null,
-        pole_id: pole_id || null,
-        lead_id: lead_id || null,
-        deadline: deadline || null,
-        google_form_url: google_form_url?.trim() || null,
-        status: "planned",
-        progress: 0
-      })
+      .insert(insertPayload)
       .select()
       .single();
 
+    // If failed due to missing google_form_url column in DB, retry without it
+    if (insertError && (insertError.message?.includes("google_form_url") || insertError.code === "42703")) {
+      delete insertPayload.google_form_url;
+      const retry = await (client as any)
+        .from("projects")
+        .insert(insertPayload)
+        .select()
+        .single();
+      project = retry.data;
+      insertError = retry.error;
+    }
+
     if (insertError) {
-      return NextResponse.json({ error: insertError.message }, { status: 500 });
+      console.error("[PROJECT CREATE ERROR]", insertError);
+      return NextResponse.json({ error: insertError.message || "Erreur lors de la création du projet." }, { status: 500 });
     }
 
     // 2. Insert Assigned Members
-    const assignedIds: string[] = Array.isArray(member_ids) ? member_ids : [];
-    if (lead_id && !assignedIds.includes(lead_id)) {
-      assignedIds.push(lead_id);
+    const assignedIds: string[] = Array.isArray(member_ids)
+      ? (Array.from(new Set(member_ids.map(cleanUuid).filter(Boolean))) as string[])
+      : [];
+
+    if (leadIdClean && !assignedIds.includes(leadIdClean)) {
+      assignedIds.push(leadIdClean);
     }
 
-    if (assignedIds.length > 0) {
+    if (assignedIds.length > 0 && project?.id) {
       const memberRows = assignedIds.map((userId) => ({
         project_id: project.id,
         user_id: userId,
@@ -157,6 +158,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, project });
   } catch (err: any) {
+    console.error("[PROJECT POST EXCEPTION]", err);
     return NextResponse.json(
       { error: err.message || "Erreur lors de la création du projet." },
       { status: 500 }
@@ -182,22 +184,39 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: "Identifiant du projet requis." }, { status: 400 });
     }
 
+    const leadIdClean = cleanUuid(lead_id);
+    const poleIdClean = cleanUuid(pole_id);
+    const deadlineClean = cleanDate(deadline);
+
     const updatePayload: Record<string, any> = {};
     if (title !== undefined) updatePayload.title = title.trim();
     if (description !== undefined) updatePayload.description = description?.trim() || null;
-    if (pole_id !== undefined) updatePayload.pole_id = pole_id || null;
-    if (lead_id !== undefined) updatePayload.lead_id = lead_id || null;
-    if (deadline !== undefined) updatePayload.deadline = deadline || null;
+    if (pole_id !== undefined) updatePayload.pole_id = poleIdClean;
+    if (lead_id !== undefined) updatePayload.lead_id = leadIdClean;
+    if (deadline !== undefined) updatePayload.deadline = deadlineClean;
     if (google_form_url !== undefined) updatePayload.google_form_url = google_form_url?.trim() || null;
     if (status !== undefined) updatePayload.status = status;
     if (progress !== undefined) updatePayload.progress = progress;
 
-    const { data: updatedProject, error: updateError } = await (client as any)
+    let { data: updatedProject, error: updateError } = await (client as any)
       .from("projects")
       .update(updatePayload)
       .eq("id", id)
       .select()
       .single();
+
+    // If failed due to missing google_form_url column, retry without it
+    if (updateError && (updateError.message?.includes("google_form_url") || updateError.code === "42703")) {
+      delete updatePayload.google_form_url;
+      const retry = await (client as any)
+        .from("projects")
+        .update(updatePayload)
+        .eq("id", id)
+        .select()
+        .single();
+      updatedProject = retry.data;
+      updateError = retry.error;
+    }
 
     if (updateError) {
       return NextResponse.json({ error: updateError.message }, { status: 500 });
@@ -208,9 +227,9 @@ export async function PUT(request: Request) {
       // Remove existing members
       await (client as any).from("project_members").delete().eq("project_id", id);
 
-      const assignedIds: string[] = [...member_ids];
-      if (lead_id && !assignedIds.includes(lead_id)) {
-        assignedIds.push(lead_id);
+      const assignedIds: string[] = Array.from(new Set(member_ids.map(cleanUuid).filter(Boolean))) as string[];
+      if (leadIdClean && !assignedIds.includes(leadIdClean)) {
+        assignedIds.push(leadIdClean);
       }
 
       if (assignedIds.length > 0) {
@@ -250,21 +269,43 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "Identifiant du projet requis." }, { status: 400 });
     }
 
-    // Clean up dependent records first
-    await (client as any).from("project_tasks").delete().eq("project_id", id);
-    await (client as any).from("project_members").delete().eq("project_id", id);
+    // 1. Unlink points_log records referencing this project
+    try {
+      await (client as any)
+        .from("points_log")
+        .update({ related_project_id: null })
+        .eq("related_project_id", id);
+    } catch (e) {
+      console.warn("Could not nullify points_log related_project_id:", e);
+    }
 
+    // 2. Clean up dependent records first
+    try {
+      await (client as any).from("project_tasks").delete().eq("project_id", id);
+    } catch (e) {
+      console.warn("Could not delete project_tasks:", e);
+    }
+
+    try {
+      await (client as any).from("project_members").delete().eq("project_id", id);
+    } catch (e) {
+      console.warn("Could not delete project_members:", e);
+    }
+
+    // 3. Delete the project
     const { error: deleteError } = await (client as any)
       .from("projects")
       .delete()
       .eq("id", id);
 
     if (deleteError) {
+      console.error("[PROJECT DELETE ERROR]", deleteError);
       return NextResponse.json({ error: deleteError.message }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });
   } catch (err: any) {
+    console.error("[PROJECT DELETE EXCEPTION]", err);
     return NextResponse.json(
       { error: err.message || "Erreur lors de la suppression." },
       { status: 500 }

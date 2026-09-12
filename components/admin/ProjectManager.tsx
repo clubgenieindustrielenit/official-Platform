@@ -150,7 +150,7 @@ export default function ProjectManager() {
         description: description?.trim() || null,
         pole_id: poleId || null,
         lead_id: leadId || null,
-        deadline: deadline ? new Date(deadline).toISOString() : null,
+        deadline: deadline ? (deadline.includes("T") ? deadline.split("T")[0] : deadline) : null,
         google_form_url: googleFormUrl.trim() || null,
         status,
         progress: status === "done" ? 100 : progress,
@@ -196,9 +196,15 @@ export default function ProjectManager() {
     if (!confirm(`Voulez-vous vraiment supprimer le projet "${projectTitle}" ?`)) return;
     try {
       const res = await fetch(`/api/admin/projects?id=${id}`, { method: "DELETE" });
-      if (res.ok) fetchProjects();
-    } catch (err) {
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "Erreur lors de la suppression du projet");
+        return;
+      }
+      fetchProjects();
+    } catch (err: any) {
       console.error("Failed to delete project", err);
+      alert(err.message || "Erreur lors de la suppression du projet");
     }
   };
 
@@ -454,6 +460,12 @@ export default function ProjectManager() {
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-4">
+                {error && (
+                  <div className="p-3.5 bg-red-500/15 border border-red-500/30 rounded-2xl text-red-300 text-xs flex items-center gap-2">
+                    <X className="w-4 h-4 shrink-0 text-red-400" />
+                    <span>{error}</span>
+                  </div>
+                )}
                 {/* Title */}
                 <div>
                   <label className="block text-xs font-mono uppercase text-[#aaa] mb-1">
