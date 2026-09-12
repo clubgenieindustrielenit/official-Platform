@@ -3,7 +3,6 @@ import { verifyCanManage } from "@/lib/supabase/adminAuth";
 
 export async function POST(request: Request) {
   try {
-    // Admin-only — bureau members cannot delete users
     const auth = await verifyCanManage(true);
     if (!auth.ok) {
       return NextResponse.json({ error: auth.error }, { status: auth.status });
@@ -20,9 +19,9 @@ export async function POST(request: Request) {
       );
     }
 
-    // deleteUser removes the row from auth.users.
-    // profiles.id has ON DELETE CASCADE, so the profile row is wiped automatically.
-    const { error } = await (client as any).auth.admin.deleteUser(user_id);
+    console.log("[DELETE API] Request to delete:", user_id);
+    const { data, error } = await (client as any).auth.admin.deleteUser(user_id);
+    console.log("[DELETE API] Result for", user_id, ":", { data, error });
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });

@@ -16,7 +16,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Search,
+  ExternalLink,
 } from "lucide-react";
+import Link from "next/link";
 
 type CalendarActivity = {
   id: string;
@@ -157,8 +159,13 @@ export default function CalendarManager() {
     setError(null);
 
     try {
-      const fullDateStart = `${formDate}T${formTime}:00`;
+      const parsedDate = new Date(`${formDate}T${formTime}`);
+      const fullDateStart = !isNaN(parsedDate.getTime())
+        ? parsedDate.toISOString()
+        : new Date().toISOString();
+
       const payload = {
+        ...(editingActivity ? { id: editingActivity.id } : {}),
         title: formTitle.trim(),
         type: formType,
         date_start: fullDateStart,
@@ -167,13 +174,13 @@ export default function CalendarManager() {
       };
 
       const res = await fetch("/api/calendar", {
-        method: "POST",
+        method: editingActivity ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Erreur lors de la création");
+      if (!res.ok) throw new Error(json.error || "Erreur lors de l'enregistrement");
 
       setIsModalOpen(false);
       fetchActivities();
@@ -358,6 +365,20 @@ export default function CalendarManager() {
 
                 {/* Actions */}
                 <div className="flex items-center gap-2 shrink-0">
+                  <Link
+                    href={
+                      act.type === "visit"
+                        ? `/membre/visites/${act.id}`
+                        : act.type === "formation"
+                        ? `/membre/formations/${act.id}`
+                        : `/membre/evenements/${act.id}`
+                    }
+                    target="_blank"
+                    className="p-2 rounded-xl bg-[#1e2020] hover:bg-sky-500/15 text-[#aaa] hover:text-sky-400 transition-colors cursor-pointer"
+                    title="Voir la page membre"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                  </Link>
                   <button
                     onClick={() => openEditModal(act)}
                     className="p-2 rounded-xl bg-[#1e2020] hover:bg-custom-amber/15 text-[#aaa] hover:text-custom-amber transition-colors cursor-pointer"

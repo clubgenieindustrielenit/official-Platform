@@ -28,12 +28,15 @@ interface ProfilClientProps {
     created_at: string;
   }>;
   userEmail: string;
+  /** All poles the member is assigned to (resolved from pole_ids) */
+  resolvedPoles?: { id: string; name: string; color?: string }[];
 }
 
 export default function ProfilClient({
   initialProfile,
   initialPointsLog,
   userEmail,
+  resolvedPoles = [],
 }: ProfilClientProps) {
   const router = useRouter();
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -97,11 +100,27 @@ export default function ProfilClient({
                 {initialProfile?.email || userEmail}
               </p>
               <div className="flex flex-wrap items-center gap-2 mt-2">
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-white">
-                  {initialProfile?.poles?.name
-                    ? `Pôle ${initialProfile.poles.name.replace(/^Pôle\s+/i, "")}`
-                    : "Membre ENIT"}
-                </span>
+                {resolvedPoles.length > 0 ? (
+                  resolvedPoles.map((p) => (
+                    <span
+                      key={p.id}
+                      className="text-[10px] font-bold px-2 py-0.5 rounded-md border"
+                      style={p.color
+                        ? {
+                            backgroundColor: `${p.color}18`,
+                            borderColor: `${p.color}40`,
+                            color: p.color,
+                          }
+                        : undefined}
+                    >
+                      {`Pôle ${p.name.replace(/^Pôle\s+/i, "")}`}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-white">
+                    Membre ENIT
+                  </span>
+                )}
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-custom-amber/15 text-custom-amber border border-custom-amber/30">
                   {getRoleLabel(initialProfile?.role, initialProfile?.statut_membre)}
                 </span>

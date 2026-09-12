@@ -74,6 +74,7 @@ import CalendarManager from "@/components/admin/CalendarManager";
 import ContenuTab from "@/components/admin/ContenuTab";
 import TestimonialsTab from "@/components/admin/TestimonialsTab";
 import MemberPoleMultiSelect from "@/components/admin/MemberPoleMultiSelect";
+import MembersGridView from "@/components/admin/MembersGridView";
 import TestimonialsManager from "@/components/admin/TestimonialsManager";
 import AnnuaireManager from "@/components/admin/AnnuaireManager";
 import PartnersManager from "@/components/admin/PartnersManager";
@@ -1409,243 +1410,18 @@ export default function AdminDashboardPage() {
 
           {/* TAB 2: MEMBERS */}
           {activeTab === "membres" && (
-            <div className="space-y-6">
-              <div className="bg-[#14213d] border border-[#333535] rounded-2xl p-6 shadow-xl space-y-4">
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pb-4 border-b border-[#2a2c2c]">
-                  <div>
-                    <h2 className="text-base font-bold text-white flex items-center gap-2">
-                      <Users className="w-5 h-5 text-custom-amber" />
-                      <span>Membres & Gestion des Statuts</span>
-                    </h2>
-                    <p className="text-xs text-[#888] mt-0.5">
-                      Gérez les statuts (Senior, Actif, Alumni), attribuez des points et validez les préinscriptions.
-                    </p>
-                  </div>
-
-                  <div className="relative w-full sm:w-80">
-                    <Search className="w-4 h-4 text-[#555] absolute left-3 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="text"
-                      value={memberSearch}
-                      onChange={(e) => setMemberSearch(e.target.value)}
-                      placeholder="Rechercher par nom, email, classe..."
-                      className="w-full bg-[#121414] border border-[#333535] focus:border-[#fca311] rounded-xl py-2 pl-9 pr-3 text-xs text-white outline-none"
-                    />
-                  </div>
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead>
-                      <tr className="border-b border-[#2a2c2c] text-[#888] uppercase text-[10px] tracking-wider">
-                        <th className="py-3 px-4">MEMBRE</th>
-                        <th className="py-3 px-4">PÔLES ASSIGNÉS</th>
-                        <th className="py-3 px-4">STATUT MEMBRE</th>
-                        <th className="py-3 px-4">CLASSE & PARCOURS</th>
-                        <th className="py-3 px-4">POINTS TOTAL</th>
-                        <th className="py-3 px-4">RÔLE ACCÈS</th>
-                        <th className="py-3 px-4 text-right">ACTIONS</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#2a2c2c]">
-                      {filteredMembers.length === 0 ? (
-                        <tr>
-                          <td colSpan={7} className="py-12 text-center text-[#666]">
-                            Aucun membre trouvé.
-                          </td>
-                        </tr>
-                      ) : (
-                        filteredMembers.map((row) => (
-                          <tr key={row.id} className="hover:bg-[#1e2020]/50 transition-colors">
-                            {/* Member info */}
-                            <td className="py-3.5 px-4">
-                              <div className="flex items-center gap-3">
-                                <div className="w-9 h-9 rounded-full bg-[#1e2020] border border-[#333535] flex items-center justify-center font-bold text-custom-amber text-xs shrink-0 overflow-hidden shadow-sm">
-                                  {row.avatar_url ? (
-                                    <img
-                                      src={row.avatar_url}
-                                      alt={row.first_name || "Membre"}
-                                      className="w-full h-full object-cover"
-                                    />
-                                  ) : (
-                                    <span>
-                                      {row.first_name ? row.first_name[0] : row.email.substring(0, 1).toUpperCase()}
-                                      {row.last_name ? row.last_name[0] : ""}
-                                    </span>
-                                  )}
-                                </div>
-                                <div>
-                                  <div className="font-bold text-white text-xs">
-                                    {row.first_name || row.last_name
-                                      ? `${row.first_name || ""} ${row.last_name || ""}`
-                                      : row.email.split("@")[0]}
-                                  </div>
-                                  <div className="text-[11px] text-[#888]">{row.email}</div>
-                                  {row.phone && (
-                                    <div className="text-[10px] text-[#666] flex items-center gap-1 mt-0.5">
-                                      <Phone className="w-3 h-3 text-[#555]" />
-                                      <span>{row.phone}</span>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            </td>
-
-                            {/* Poles Multi-Select */}
-                            <td className="py-3.5 px-4">
-                              <MemberPoleMultiSelect
-                                memberId={row.id}
-                                assignedPoleIds={row.pole_ids}
-                                fallbackPoleId={row.pole_id}
-                                poles={poles}
-                                onChange={(newPoleIds) =>
-                                  handleChangeMemberPoles(row, newPoleIds)
-                                }
-                              />
-                            </td>
-
-                            {/* Statut Membre + Verification */}
-                            <td className="py-3.5 px-4">
-                              <div className="space-y-1.5">
-                                <span
-                                  className={`inline-block text-[10px] uppercase font-bold px-2 py-0.5 rounded-md border ${
-                                    row.statut_membre === "senior"
-                                      ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
-                                      : row.statut_membre === "alumni"
-                                      ? "bg-purple-500/10 text-purple-400 border-purple-500/20"
-                                      : "bg-blue-500/10 text-blue-400 border-blue-500/20"
-                                  }`}
-                                >
-                                  {row.statut_membre || "Actif"}
-                                </span>
-
-                                <div>
-                                  {row.statut_membre_verified ? (
-                                    <span className="inline-flex items-center gap-1 text-[10px] text-emerald-400 font-semibold">
-                                      <CheckCircle2 className="w-3 h-3" />
-                                      <span>Vérifié</span>
-                                    </span>
-                                  ) : (
-                                    <button
-                                      type="button"
-                                      onClick={() => handleVerifyMemberStatus(row)}
-                                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-custom-amber/15 hover:bg-custom-amber/25 text-custom-amber text-[10px] font-bold transition-colors cursor-pointer"
-                                      title="Valider le statut de ce membre"
-                                    >
-                                      <Shield className="w-3 h-3" />
-                                      <span>Vérifier</span>
-                                    </button>
-                                  )}
-                                </div>
-                              </div>
-                            </td>
-
-                            {/* Classe & Parcours */}
-                            <td className="py-3.5 px-4">
-                              <div className="space-y-0.5 text-[11px]">
-                                <div className="font-bold text-white">
-                                  {row.statut_membre === "alumni"
-                                    ? `Promotion : ${row.year || row.classe || "Alumni"}`
-                                    : row.classe || "Non renseigné"}
-                                </div>
-                                {row.prepa_section && (
-                                  <div className="text-[10px] text-[#888]">
-                                    Prépa: {row.prepa_section} ({row.prepa_etablissement || "?"})
-                                    {row.rang_concours ? ` · Rang #${row.rang_concours}` : ""}
-                                  </div>
-                                )}
-                                {(row.bio || row.training_availability) && (
-                                  <div className="text-[10px] text-custom-amber/80 font-mono">
-                                    Concours: {row.bio || row.training_availability}
-                                  </div>
-                                )}
-                                <div className="flex items-center gap-2 pt-1">
-                                  {row.linkedin_url && (
-                                    <a
-                                      href={row.linkedin_url}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className="text-[10px] text-blue-400 hover:underline inline-flex items-center gap-0.5"
-                                    >
-                                      <span>LinkedIn</span>
-                                      <ExternalLink className="w-2.5 h-2.5" />
-                                    </a>
-                                  )}
-                                  {row.cv_url && (
-                                    <span className="text-[10px] text-emerald-400 font-semibold">
-                                      ✓ CV joint
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            </td>
-
-                            {/* Points total + Button */}
-                            <td className="py-3.5 px-4">
-                              <div className="flex items-center gap-2">
-                                <span className="font-bold text-custom-amber text-xs font-mono">
-                                  {row.points_total || 0} pts
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => handleOpenPointsModal(row)}
-                                  className="p-1 rounded-md bg-[#1e2020] hover:bg-custom-amber/20 text-[#aaa] hover:text-custom-amber transition-colors cursor-pointer"
-                                  title="Attribuer ou ajuster des points"
-                                >
-                                  <Sparkles className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            </td>
-
-                            {/* Role Select */}
-                            <td className="py-3.5 px-4">
-                              <select
-                                value={row.role}
-                                onChange={(e) =>
-                                  handleChangeRole(row, e.target.value as any)
-                                }
-                                className="bg-[#121414] border border-[#333535] focus:border-[#fca311] text-[10px] uppercase font-bold text-white rounded-xl px-2.5 py-1.5 outline-none cursor-pointer"
-                              >
-                                <option value="membre_actif">Membre Actif</option>
-                                <option value="membre_bureau">Membre Bureau</option>
-                                <option value="admin">Admin</option>
-                              </select>
-                            </td>
-
-                            {/* Actions */}
-                            <td className="py-3.5 px-4 text-right">
-                              <div className="flex items-center justify-end gap-1.5">
-                                <button
-                                  onClick={() => setSelectedMemberForPassport(row.id)}
-                                  className="p-1.5 rounded-lg text-custom-amber hover:bg-custom-amber/15 transition-colors cursor-pointer"
-                                  title="Générer le Passeport GI / Bilan Annuel d'Activité"
-                                >
-                                  <Award className="w-4 h-4" />
-                                </button>
-                                <button
-                                  onClick={() => setSelectedMemberForDetails(row)}
-                                  className="p-1.5 rounded-lg text-[#888] hover:text-custom-amber hover:bg-custom-amber/10 transition-colors cursor-pointer"
-                                  title="Voir le profil et les détails complets"
-                                >
-                                  <MoreHorizontal className="w-4 h-4" />
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteMember(row)}
-                                  className="p-1.5 rounded-lg text-[#888] hover:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
-                                  title="Supprimer le membre"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
+            <MembersGridView
+              members={members}
+              poles={poles}
+              polesMap={polesMap}
+              onChangePoles={handleChangeMemberPoles}
+              onChangeRole={handleChangeRole}
+              onVerifyStatus={handleVerifyMemberStatus}
+              onOpenPointsModal={handleOpenPointsModal}
+              onOpenPassport={(id) => setSelectedMemberForPassport(id)}
+              onSelectMemberForDetails={(m) => setSelectedMemberForDetails(m)}
+              onDeleteMember={handleDeleteMember}
+            />
           )}
 
           {/* TAB: ANNUAIRE DES MEMBRES */}

@@ -102,6 +102,73 @@ export async function POST(request: Request) {
   }
 }
 
+export async function PUT(request: Request) {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+    }
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    const role = profile?.role || user.user_metadata?.role || "membre_actif";
+
+    if (!isBureauOrAdmin(role)) {
+      return NextResponse.json(
+        { error: "Accès refusé. Réservé à l'administration et au bureau." },
+        { status: 403 }
+      );
+    }
+
+    const body = await request.json();
+    const { id, title, description, type, date_start, date_end, location, pole_id } = body;
+
+    if (!id) {
+      return NextResponse.json({ error: "ID de l'activité requis." }, { status: 400 });
+    }
+
+    const { data: updated, error } = await supabase
+      .from("activities")
+      .update({
+        title: title.trim(),
+        description: description?.trim() || null,
+        type,
+        date_start,
+        date_end: date_end || null,
+        location: location?.trim() || null,
+        pole_id: pole_id || null,
+      })
+      .eq("id", id)
+      .select("*, poles(id, name)")
+      .single();
+
+    if (error) {
+      console.error("[calendar] PUT update error:", error);
+      return NextResponse.json(
+        { error: "Erreur lors de la modification de l'activité." },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ success: true, activity: updated });
+  } catch (err: unknown) {
+    console.error("[calendar] PUT unexpected error:", err);
+    return NextResponse.json(
+      { error: "Erreur lors de la modification de l'activité" },
+      { status: 500 }
+    );
+  }
+}
+
+
 export async function DELETE(request: Request) {
   try {
     const supabase = await createClient();

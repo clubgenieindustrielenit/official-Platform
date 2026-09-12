@@ -54,7 +54,8 @@ export default function AnnouncementFormModal({ isOpen, onClose, editing, poles,
     setLoading(true);
     setError(null);
     try {
-      const payload = {
+      const { data: { user } } = await supabase.auth.getUser();
+      const payload: Record<string, any> = {
         title: title.trim(),
         excerpt: excerpt.trim() || null,
         content: content.trim() || null,
@@ -65,6 +66,7 @@ export default function AnnouncementFormModal({ isOpen, onClose, editing, poles,
         const { error: err } = await supabase.from("announcements").update(payload).eq("id", editing.id);
         if (err) throw err;
       } else {
+        payload.created_by = user?.id || null;
         const { error: err } = await supabase.from("announcements").insert(payload);
         if (err) throw err;
       }

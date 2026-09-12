@@ -21,38 +21,7 @@ export interface Testimonial {
   created_at?: string;
 }
 
-export const DEFAULT_TESTIMONIALS: Testimonial[] = [
-  {
-    id: "def-1",
-    author_name: "Prof. Mohamed Ben Ali",
-    author_role: "Enseignant-Chercheur ENIT",
-    category: "professeur",
-    quote: "Le Club Génie Industriel de l'ENIT joue un rôle fondamental dans le pont entre la théorie académique avancée et les pratiques réelles du monde industriel.",
-    author_photo_url: null,
-    approved: true,
-    rejected: false,
-  },
-  {
-    id: "def-2",
-    author_name: "Sarra Mansour",
-    author_role: "Alumni ENIT • Supply Chain Manager at Airbus",
-    category: "alumni",
-    quote: "Grâce aux ateliers et hackathons du CGI, j'ai développé une compréhension concrète des flux de production qui m'a directement propulsée dans ma carrière.",
-    author_photo_url: null,
-    approved: true,
-    rejected: false,
-  },
-  {
-    id: "def-3",
-    author_name: "Youssef Gharbi",
-    author_role: "Ancien Président du Club CGI ENIT",
-    category: "alumni",
-    quote: "L'esprit de synergie et la quête constante de l'excellence font du CGI une véritable école de leadership au cœur de l'ENIT.",
-    author_photo_url: null,
-    approved: true,
-    rejected: false,
-  },
-];
+export const DEFAULT_TESTIMONIALS: Testimonial[] = [];
 
 const CATEGORY_LABELS: Record<string, string> = {
   alumni: "Alumni",
@@ -98,25 +67,17 @@ export default function TestimonialsTab({ addToast, openConfirm }: Props) {
   const fetchTestimonials = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("testimonials")
-        .select("*")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-
-      if (data && data.length > 0) {
-        setTestimonials(data);
-      } else {
-        // Fallback to DEFAULT_TESTIMONIALS so admin can edit the default site content immediately!
-        setTestimonials(DEFAULT_TESTIMONIALS);
-      }
+      const res = await fetch("/api/admin/testimonials");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erreur chargement des témoignages.");
+      setTestimonials(data.testimonials || []);
     } catch (err: any) {
       addToast("error", err.message || "Erreur de chargement des témoignages.");
-      setTestimonials(DEFAULT_TESTIMONIALS);
+      setTestimonials([]);
     } finally {
       setLoading(false);
     }
-  }, [supabase, addToast]);
+  }, [addToast]);
 
   useEffect(() => {
     fetchTestimonials();
@@ -138,14 +99,19 @@ export default function TestimonialsTab({ addToast, openConfirm }: Props) {
 
   const uploadPhoto = async (file: File): Promise<string | null> => {
     try {
-      const ext = file.name.split(".").pop() || "jpg";
-      const filename = `testimonial_${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
-      const { data, error } = await supabase.storage
-        .from("testimonials")
-        .upload(filename, file, { contentType: file.type, upsert: true });
-      if (error) throw error;
-      const { data: urlData } = supabase.storage.from("testimonials").getPublicUrl(data.path);
-      return urlData.publicUrl;
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("bucket", "testimonials");
+
+      const res = await fetch("/api/admin/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Erreur d'upload de la photo.");
+
+      return json.url;
     } catch (err: any) {
       addToast("error", "Erreur lors de l'upload de la photo : " + (err.message || ""));
       return null;

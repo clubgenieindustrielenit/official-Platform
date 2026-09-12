@@ -212,7 +212,7 @@ export async function POST(request: Request) {
       ? `${description.trim()}\n\n${content.trim()}`
       : description.trim();
 
-    const imageUrl = photoUrls[0] || "";
+    const imageUrl = photoUrls[0] || null;
 
     const { data: newActivity, error: insertError } = await (client as any)
       .from("activities")
@@ -223,7 +223,7 @@ export async function POST(request: Request) {
         type: getActivityType(category),
         date: date || new Date().toISOString(),
         date_start: date || new Date().toISOString(),
-        location: location || "",
+        location: location || null,
         status: status || "published",
         image_url: imageUrl,
         cover_image_url: imageUrl,

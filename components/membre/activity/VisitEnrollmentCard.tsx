@@ -77,21 +77,36 @@ export default function VisitEnrollmentCard({
       });
 
       if (rpcError) {
-        setRegistration(initialRegistration);
-        throw new Error(rpcError.message || "Erreur lors de l'inscription.");
+        // Fallback: direct insert into event_registrations
+        const { data: inserted, error: insertError } = await supabase
+          .from("event_registrations")
+          .insert({
+            activity_id: activity.id,
+            user_id: userId,
+            status: isFull ? "waitlisted" : "confirmed",
+          })
+          .select()
+          .maybeSingle();
+
+        if (insertError) {
+          setRegistration(initialRegistration);
+          throw new Error(insertError.message || rpcError.message || "Erreur lors de l'inscription.");
+        }
+        if (inserted) setRegistration(inserted);
+      } else {
+        // Fetch actual registration row
+        const { data: realReg } = await supabase
+          .from("event_registrations")
+          .select("*")
+          .eq("activity_id", activity.id)
+          .eq("user_id", userId)
+          .maybeSingle();
+
+        if (realReg) {
+          setRegistration(realReg);
+        }
       }
 
-      // Fetch actual registration row
-      const { data: realReg } = await supabase
-        .from("event_registrations")
-        .select("*")
-        .eq("activity_id", activity.id)
-        .eq("user_id", userId)
-        .maybeSingle();
-
-      if (realReg) {
-        setRegistration(realReg);
-      }
       setRegisteredCount((prev) => prev + 1);
       setSuccessMessage("Votre inscription à cette visite a été confirmée avec succès !");
     } catch (err: any) {
@@ -117,8 +132,16 @@ export default function VisitEnrollmentCard({
       });
 
       if (rpcError) {
-        setRegistration(prevReg);
-        throw new Error(rpcError.message || "Annulation impossible.");
+        // Fallback: direct delete from event_registrations
+        const { error: deleteError } = await supabase
+          .from("event_registrations")
+          .delete()
+          .eq("id", registration.id);
+
+        if (deleteError) {
+          setRegistration(prevReg);
+          throw new Error(deleteError.message || rpcError.message || "Annulation impossible.");
+        }
       }
 
       setRegisteredCount((prev) => Math.max(0, prev - 1));

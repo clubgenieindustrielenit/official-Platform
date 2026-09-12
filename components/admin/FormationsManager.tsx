@@ -174,21 +174,19 @@ export default function FormationsManager({
 
   const uploadCoverImage = async (file: File): Promise<string | null> => {
     try {
-      const fileExt = file.name.split(".").pop() || "jpg";
-      const fileName = `formation_${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-      const filePath = `formations/${fileName}`;
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("bucket", "activity-images");
 
-      const { error: uploadError } = await supabase.storage
-        .from("activity-images")
-        .upload(filePath, file, { cacheControl: "3600", upsert: true });
+      const res = await fetch("/api/admin/upload", {
+        method: "POST",
+        body: formData,
+      });
 
-      if (uploadError) throw uploadError;
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Erreur upload image");
 
-      const { data: { publicUrl } } = supabase.storage
-        .from("activity-images")
-        .getPublicUrl(filePath);
-
-      return publicUrl;
+      return json.url;
     } catch (err: any) {
       console.warn("Storage upload fallback:", err);
       return null;
@@ -204,7 +202,7 @@ export default function FormationsManager({
 
     setSubmitting(true);
     try {
-      let uploadedUrl = previewImageUrl;
+      let uploadedUrl = (previewImageUrl && !previewImageUrl.startsWith("blob:")) ? previewImageUrl : null;
       if (imageFile) {
         const resUrl = await uploadCoverImage(imageFile);
         if (resUrl) uploadedUrl = resUrl;
