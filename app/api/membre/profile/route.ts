@@ -52,8 +52,6 @@ export async function PUT(request: Request) {
       statut_membre,
       year: statut_membre === "alumni" ? finalPromotion : null,
       bio: finalConcoursYear,
-      annee_concours: finalConcoursYear,
-      training_availability: finalConcoursYear,
       avatar_url: avatar_url?.trim() || null,
       cv_url: cv_url?.trim() || null,
       linkedin_url: linkedin_url?.trim() || null,

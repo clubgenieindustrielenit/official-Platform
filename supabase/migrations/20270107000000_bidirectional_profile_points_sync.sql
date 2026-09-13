@@ -4,8 +4,6 @@
 
 -- 1. Ensure columns exist on public.profiles
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS points_total INTEGER DEFAULT 0;
-ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS annee_concours TEXT;
-ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS training_availability TEXT;
 
 -- 2. Ensure points_log table exists and has proper indexes
 CREATE TABLE IF NOT EXISTS public.points_log (
@@ -19,7 +17,7 @@ CREATE TABLE IF NOT EXISTS public.points_log (
 CREATE INDEX IF NOT EXISTS idx_points_log_user_id ON public.points_log(user_id);
 CREATE INDEX IF NOT EXISTS idx_points_log_created_at ON public.points_log(created_at DESC);
 
--- 3. Replace trigger function to handle both ADDITIONS (+) and DEDUCTIONS (-) across all 7 profile fields
+-- 3. Replace trigger function to handle both ADDITIONS (+) and DEDUCTIONS (-) across all profile fields
 CREATE OR REPLACE FUNCTION public.award_profile_completion_points()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -117,25 +115,15 @@ BEGIN
   END IF;
 
   -- ───────────────────────────────────────────────────────────────────────────
-  -- 7. Année Concours (annee_concours or bio) -> +/- 5 pts
+  -- 7. Année Concours (bio) -> +/- 5 pts
   -- ───────────────────────────────────────────────────────────────────────────
-  IF (
-       (NEW.annee_concours IS NOT NULL AND TRIM(NEW.annee_concours) <> '') OR
-       (NEW.bio IS NOT NULL AND TRIM(NEW.bio) <> '')
-     ) AND (
-       (OLD.annee_concours IS NULL OR TRIM(OLD.annee_concours) = '') AND
-       (OLD.bio IS NULL OR TRIM(OLD.bio) = '')
-     ) THEN
+  IF (NEW.bio IS NOT NULL AND TRIM(NEW.bio) <> '') 
+     AND (OLD.bio IS NULL OR TRIM(OLD.bio) = '') THEN
     INSERT INTO public.points_log (user_id, amount, reason) 
     VALUES (NEW.id, 5, 'Profil complété : Année de concours renseignée');
     v_pts_delta := v_pts_delta + 5;
-  ELSIF (
-       (OLD.annee_concours IS NOT NULL AND TRIM(OLD.annee_concours) <> '') OR
-       (OLD.bio IS NOT NULL AND TRIM(OLD.bio) <> '')
-     ) AND (
-       (NEW.annee_concours IS NULL OR TRIM(NEW.annee_concours) = '') AND
-       (NEW.bio IS NULL OR TRIM(NEW.bio) = '')
-     ) THEN
+  ELSIF (OLD.bio IS NOT NULL AND TRIM(OLD.bio) <> '') 
+        AND (NEW.bio IS NULL OR TRIM(NEW.bio) = '') THEN
     INSERT INTO public.points_log (user_id, amount, reason) 
     VALUES (NEW.id, -5, 'Profil modifié : Année de concours supprimée');
     v_pts_delta := v_pts_delta - 5;
