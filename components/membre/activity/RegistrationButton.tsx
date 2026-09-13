@@ -41,44 +41,58 @@ export default function RegistrationButton({ activityId, initialRegistration, is
     }
     setRegistration(optimisticReg)
 
-    const { error: rpcError } = await supabase.rpc('register_to_activity', { p_activity_id: activityId })
+    try {
+      const res = await fetch("/api/activities/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ activity_id: activityId }),
+      });
 
-    if (rpcError) {
-      // Rollback en cas d'erreur
-      setRegistration(null)
-      setError("Une erreur est survenue. Réessaie.")
-    } else {
-      // Recharger la vraie donnée pour avoir le bon ID et statut
-      const { data: realReg } = await supabase
-        .from('event_registrations')
-        .select('*')
-        .eq('activity_id', activityId)
-        .eq('user_id', userId)
-        .single()
-
-      if (realReg) setRegistration(realReg)
+      const data = await res.json();
+      if (!res.ok) {
+        setRegistration(null);
+        setError(data.error || "Une erreur est survenue. Réessaie.");
+      } else {
+        if (data.registration) {
+          setRegistration(data.registration);
+        }
+      }
+    } catch (err: any) {
+      setRegistration(null);
+      setError(err.message || "Une erreur est survenue.");
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false)
-  }
+  };
 
   const handleCancel = async () => {
-    if (!registration || registration.id === 'temp-id') return
-    setIsLoading(true)
-    setError(null)
+    if (!registration || registration.id === 'temp-id') return;
+    setIsLoading(true);
+    setError(null);
 
     // UI optimiste
-    const previousState = registration
-    setRegistration(null)
+    const previousState = registration;
+    setRegistration(null);
 
-    const { error: rpcError } = await supabase.rpc('cancel_registration', { p_registration_id: registration.id })
-
-    if (rpcError) {
-      // Rollback
-      setRegistration(previousState)
-      setError("Annulation impossible pour le moment.")
+    try {
+      const res = await fetch(
+        `/api/activities/register?activity_id=${activityId}&id=${registration.id}`,
+        {
+          method: "DELETE",
+        }
+      );
+      const data = await res.json();
+      if (!res.ok) {
+        setRegistration(previousState);
+        setError(data.error || "Annulation impossible pour le moment.");
+      }
+    } catch (err: any) {
+      setRegistration(previousState);
+      setError(err.message || "Annulation impossible pour le moment.");
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false)
-  }
+  };
 
   // Rendu visuel selon l'état
   if (registration && registration.status === 'confirmed') {
