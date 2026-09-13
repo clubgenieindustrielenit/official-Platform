@@ -85,17 +85,11 @@ export const memberProfileSchema = z
     annee_concours: z.string().max(20).nullable().optional(),
     bio: z.string().max(500).nullable().optional(),
     // Optional fields
-    avatar_url: z.string().url().max(2048).nullable().optional(),
-    cv_url: z.string().url().max(2048).nullable().optional(),
-    linkedin_url: z
-      .string()
-      .url("URL LinkedIn invalide.")
-      .max(500)
-      .nullable()
-      .optional()
-      .or(z.literal("")),
-    prepa_section: z.string().max(100).nullable().optional(),
-    prepa_etablissement: z.string().max(200).nullable().optional(),
+    avatar_url: z.string().max(2048).nullable().optional().or(z.literal("")),
+    cv_url: z.string().max(2048).nullable().optional().or(z.literal("")),
+    linkedin_url: z.string().max(500).nullable().optional().or(z.literal("")),
+    prepa_section: z.string().max(100).nullable().optional().or(z.literal("")),
+    prepa_etablissement: z.string().max(200).nullable().optional().or(z.literal("")),
     rang_concours: z.number().int().positive().nullable().optional(),
   })
   .strict();

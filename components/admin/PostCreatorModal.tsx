@@ -72,6 +72,7 @@ export default function PostCreatorModal({ isOpen, onClose, onSave, editingActiv
   // ── Save state ──
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const addMoreRef = useRef<HTMLInputElement>(null)
@@ -81,6 +82,7 @@ export default function PostCreatorModal({ isOpen, onClose, onSave, editingActiv
     if (!isOpen) return
     setSaved(false)
     setSaving(false)
+    setErrorMsg(null)
 
     if (editingActivity) {
       setTitle(editingActivity.title)
@@ -149,12 +151,14 @@ export default function PostCreatorModal({ isOpen, onClose, onSave, editingActiv
     if (!e.target.files) return
     const picked = Array.from(e.target.files).filter(f => f.type.startsWith('image/'))
     addFiles(picked)
+    setStep(2)
     e.target.value = ''
   }
 
   const handleSave = async () => {
     if (!title.trim() || !description.trim()) return
     setSaving(true)
+    setErrorMsg(null)
     try {
       const fd = new FormData()
       if (editingActivity) fd.append('id', editingActivity.id)
@@ -167,12 +171,19 @@ export default function PostCreatorModal({ isOpen, onClose, onSave, editingActiv
       fd.append('status', status)
       fd.append('photo_urls', JSON.stringify(existingUrls))
       for (let i = 0; i < files.length; i++) {
-        const compressed = await compressImage(files[i], 1280, 960, 0.82)
-        fd.append(`file_${i}`, compressed)
+        try {
+          const compressed = await compressImage(files[i], 1280, 960, 0.82)
+          fd.append(`file_${i}`, compressed)
+        } catch (_) {
+          fd.append(`file_${i}`, files[i])
+        }
       }
       await onSave(fd)
       setSaved(true)
       setTimeout(() => onClose(), 1200)
+    } catch (err: any) {
+      console.error("Save activity error:", err)
+      setErrorMsg(err.message || "Une erreur est survenue lors de l'enregistrement.")
     } finally {
       setSaving(false)
     }
@@ -426,6 +437,12 @@ export default function PostCreatorModal({ isOpen, onClose, onSave, editingActiv
                 </div>
 
                 <div className="px-5 py-4 space-y-5">
+                  {errorMsg && (
+                    <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-xs flex items-center gap-2">
+                      <span>⚠️ {errorMsg}</span>
+                    </div>
+                  )}
+
                   {/* Title */}
                   <div>
                     <label className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[#888] mb-1.5">

@@ -16,8 +16,6 @@ export async function PUT(request: Request) {
     }
 
     // ── 2. Input Validation ─────────────────────────────────────────────────
-    // Zod schema with .strict() strips any extra fields the client might send
-    // (e.g. role, id, points_total) preventing mass-assignment.
     const parsed = await parseBody(request, memberProfileSchema);
     if (!parsed.ok) {
       return NextResponse.json({ error: parsed.error }, { status: parsed.status });
@@ -42,12 +40,9 @@ export async function PUT(request: Request) {
     } = parsed.data;
 
     // ── 3. Build update payload ─────────────────────────────────────────────
-    // IDOR FIX: The .eq("id", user.id) below ensures a member can only ever
-    // update their OWN profile. The user.id comes from the server-side session,
-    // not from the request body, so client-supplied IDs are ignored entirely.
-    const finalPromotion = promotion || year || null;
+    const finalPromotion = promotion?.trim() || year?.trim() || null;
     const finalClasse = statut_membre === "alumni" ? (finalPromotion || "Alumni") : (classe?.trim() || null);
-    const finalConcoursYear = annee_concours || bio || null;
+    const finalConcoursYear = annee_concours?.trim() || bio?.trim() || null;
 
     const updatePayload: Record<string, unknown> = {
       first_name: first_name.trim(),
@@ -57,14 +52,15 @@ export async function PUT(request: Request) {
       statut_membre,
       year: statut_membre === "alumni" ? finalPromotion : null,
       bio: finalConcoursYear,
+      annee_concours: finalConcoursYear,
       training_availability: finalConcoursYear,
-      avatar_url: avatar_url || null,
-      cv_url: cv_url || null,
+      avatar_url: avatar_url?.trim() || null,
+      cv_url: cv_url?.trim() || null,
       linkedin_url: linkedin_url?.trim() || null,
-      prepa_section: prepa_section || null,
+      prepa_section: prepa_section?.trim() || null,
       prepa_etablissement: prepa_etablissement?.trim() || null,
       rang_concours:
-        rang_concours !== null && rang_concours !== undefined
+        rang_concours !== null && rang_concours !== undefined && String(rang_concours).trim() !== ""
           ? Number(rang_concours)
           : null,
     };
@@ -72,14 +68,14 @@ export async function PUT(request: Request) {
     const { data: updatedProfile, error: updateError } = await supabase
       .from("profiles")
       .update(updatePayload)
-      .eq("id", user.id) // scoped to session user — never trust client ID
+      .eq("id", user.id)
       .select("*, poles(name)")
       .single();
 
     if (updateError) {
       console.error("[membre/profile] Update error:", updateError);
       return NextResponse.json(
-        { error: "Erreur lors de la mise à jour du profil." },
+        { error: updateError.message || "Erreur lors de la mise à jour du profil." },
         { status: 500 }
       );
     }
@@ -88,7 +84,7 @@ export async function PUT(request: Request) {
   } catch (err: unknown) {
     console.error("[membre/profile] Unexpected error:", err);
     return NextResponse.json(
-      { error: "Une erreur est survenue lors de la mise à jour du profil." },
+      { error: (err as any)?.message || "Une erreur est survenue lors de la mise à jour du profil." },
       { status: 500 }
     );
   }

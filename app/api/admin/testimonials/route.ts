@@ -1,47 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient as createServerSupabase } from "@/lib/supabase/server";
-import { createClient } from "@supabase/supabase-js";
-
-type ManageableRole = "admin" | "bureau" | "membre_bureau";
-
-async function verifyCanManage(): Promise<
-  | { ok: true; user: any; role: ManageableRole; client: ReturnType<typeof createClient> }
-  | { ok: false; error: string; status: number }
-> {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  const serverSupabase = await createServerSupabase();
-  const {
-    data: { user },
-  } = await serverSupabase.auth.getUser();
-
-  if (!user) {
-    return { ok: false, error: "Non authentifié.", status: 401 };
-  }
-
-  const client = serviceRoleKey
-    ? createClient(supabaseUrl, serviceRoleKey)
-    : serverSupabase;
-
-  const { data: profile } = await (client as any)
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  const role: string = profile?.role || user.user_metadata?.role || "";
-
-  if (role !== "admin" && role !== "bureau" && role !== "membre_bureau") {
-    return {
-      ok: false,
-      error: "Accès refusé. Seuls les administrateurs et membres du bureau peuvent gérer les témoignages.",
-      status: 403,
-    };
-  }
-
-  return { ok: true, user, role: role as ManageableRole, client: client as any };
-}
+import { verifyCanManage } from "@/lib/supabase/adminAuth";
 
 function computeInitials(name: string): string {
   if (!name) return "CG";

@@ -1,52 +1,6 @@
 import { NextResponse } from "next/server";
-import { createClient as createServerSupabase } from "@/lib/supabase/server";
-import { createClient } from "@supabase/supabase-js";
+import { verifyCanManage } from "@/lib/supabase/adminAuth";
 import { compressImageBuffer } from "@/lib/utils/serverImageCompressor";
-
-type ManageableRole = "admin" | "bureau";
-
-/**
- * Verifies the current user is an admin or bureau member.
- * Returns the user, their role, and a privileged client.
- */
-async function verifyCanManage(): Promise<
-  | { ok: true; user: any; role: ManageableRole; client: ReturnType<typeof createClient> }
-  | { ok: false; error: string; status: number }
-> {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  const serverSupabase = await createServerSupabase();
-  const {
-    data: { user },
-  } = await serverSupabase.auth.getUser();
-
-  if (!user) {
-    return { ok: false, error: "Non authentifié.", status: 401 };
-  }
-
-  const client = serviceRoleKey
-    ? createClient(supabaseUrl, serviceRoleKey)
-    : serverSupabase;
-
-  const { data: profile } = await (client as any)
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  const role: string = profile?.role || user.user_metadata?.role || "";
-
-  if (role !== "admin" && role !== "bureau" && role !== "membre_bureau") {
-    return {
-      ok: false,
-      error: "Accès refusé. Seuls les rôles admin et bureau peuvent gérer les activités.",
-      status: 403,
-    };
-  }
-
-  return { ok: true, user, role: role as ManageableRole, client: client as any };
-}
 
 /**
  * Uploads multiple files to activity-images storage bucket.
@@ -67,29 +21,33 @@ async function uploadFiles(
 
   for (const file of files) {
     if (!file || file.size === 0) continue;
-    const arrayBuffer = await file.arrayBuffer();
-    const rawBuffer = Buffer.from(arrayBuffer);
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const rawBuffer = Buffer.from(arrayBuffer);
 
-    // Compress using server-side Sharp utility (preserves aspect ratio, no crop)
-    const { buffer, contentType, extension } = await compressImageBuffer(rawBuffer);
+      // Compress using server-side Sharp utility (preserves aspect ratio, no crop)
+      const { buffer, contentType, extension } = await compressImageBuffer(rawBuffer);
 
-    const fileName = `act_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${extension}`;
-    const filePath = `activities/${fileName}`;
+      const fileName = `act_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${extension}`;
+      const filePath = `activities/${fileName}`;
 
-    const { error: uploadError } = await client.storage
-      .from("activity-images")
-      .upload(filePath, buffer, {
-        contentType,
-        upsert: true,
-      });
-
-    if (uploadError) {
-      console.error("Upload error:", uploadError);
-    } else {
-      const { data: pub } = client.storage
+      const { error: uploadError } = await client.storage
         .from("activity-images")
-        .getPublicUrl(filePath);
-      if (pub?.publicUrl) urls.push(pub.publicUrl);
+        .upload(filePath, buffer, {
+          contentType,
+          upsert: true,
+        });
+
+      if (uploadError) {
+        console.error("[activities upload] Storage error:", uploadError);
+      } else {
+        const { data: pub } = client.storage
+          .from("activity-images")
+          .getPublicUrl(filePath);
+        if (pub?.publicUrl) urls.push(pub.publicUrl);
+      }
+    } catch (uploadErr) {
+      console.error("[activities upload] Processing error:", uploadErr);
     }
   }
 
@@ -227,21 +185,22 @@ export async function POST(request: Request) {
         status: status || "published",
         image_url: imageUrl,
         cover_image_url: imageUrl,
+        photo_urls: photoUrls,
         created_by: user?.id,
       })
       .select()
       .single();
 
     if (insertError) {
-      console.error("Insert error:", insertError);
+      console.error("[activities POST] Insert error:", insertError);
       return NextResponse.json({ error: insertError.message }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, activity: newActivity });
   } catch (err: any) {
-    console.error("POST activity error:", err);
+    console.error("[activities POST] Exception:", err);
     return NextResponse.json(
-      { error: err.stack || err.message || "Erreur lors de la création." },
+      { error: err.stack || err.message || "Erreur lors de la création de l'activité." },
       { status: 500 }
     );
   }
@@ -327,7 +286,7 @@ export async function PUT(request: Request) {
         .eq("id", id)
         .maybeSingle();
 
-      if ((existing as any)?.created_by !== user.id) {
+      if ((existing as any)?.created_by && (existing as any).created_by !== user.id) {
         return NextResponse.json(
           { error: "Vous ne pouvez modifier que vos propres activités." },
           { status: 403 }
@@ -360,19 +319,22 @@ export async function PUT(request: Request) {
         status: status || "published",
         image_url: imageUrl,
         cover_image_url: imageUrl,
+        photo_urls: photoUrls,
       })
       .eq("id", id)
       .select()
       .single();
 
     if (updateError) {
+      console.error("[activities PUT] Update error:", updateError);
       return NextResponse.json({ error: updateError.message }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, activity: updatedActivity });
   } catch (err: any) {
+    console.error("[activities PUT] Exception:", err);
     return NextResponse.json(
-      { error: err.message || "Erreur lors de la modification." },
+      { error: err.message || "Erreur lors de la modification de l'activité." },
       { status: 500 }
     );
   }
@@ -399,7 +361,7 @@ export async function DELETE(request: Request) {
     // Fetch the activity to check ownership + get photo URLs for cleanup
     const { data: record } = await (client as any)
       .from("activities")
-      .select("created_by, image_url, cover_image_url")
+      .select("created_by, image_url, cover_image_url, photo_urls")
       .eq("id", id)
       .maybeSingle();
 
@@ -410,7 +372,7 @@ export async function DELETE(request: Request) {
     const rec = record as any;
 
     // Bureau / Non-admin members: can only delete own posts
-    if (role !== "admin" && rec.created_by !== user.id) {
+    if (role !== "admin" && rec.created_by && rec.created_by !== user.id) {
       return NextResponse.json(
         { error: "Vous ne pouvez supprimer que vos propres activités." },
         { status: 403 }
@@ -421,6 +383,7 @@ export async function DELETE(request: Request) {
     const allUrls: string[] = [
       ...(rec.cover_image_url ? [rec.cover_image_url] : []),
       ...(rec.image_url ? [rec.image_url] : []),
+      ...(Array.isArray(rec.photo_urls) ? rec.photo_urls : []),
     ];
 
     for (const url of allUrls) {
@@ -448,7 +411,7 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ success: true });
   } catch (err: any) {
     return NextResponse.json(
-      { error: err.message || "Erreur lors de la suppression." },
+      { error: err.message || "Erreur lors de la suppression de l'activité." },
       { status: 500 }
     );
   }
