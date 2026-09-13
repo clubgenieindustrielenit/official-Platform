@@ -17,16 +17,11 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "activity_id est requis." }, { status: 400 });
     }
 
-    const { data: participants, error } = await (client as any)
+    let participants: any[] = [];
+    let { data: rawData, error } = await (client as any)
       .from("event_registrations")
       .select(`
-        id,
-        activity_id,
-        user_id,
-        status,
-        queue_position,
-        attended,
-        created_at,
+        *,
         profile:profiles!event_registrations_user_id_fkey (
           id,
           first_name,
@@ -38,14 +33,40 @@ export async function GET(request: Request) {
           statut_membre
         )
       `)
-      .eq("activity_id", activityId)
-      .order("created_at", { ascending: true });
+      .eq("activity_id", activityId);
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      const fallback = await (client as any)
+        .from("event_registrations")
+        .select(`
+          *,
+          profile:profiles (
+            id,
+            first_name,
+            last_name,
+            email,
+            phone,
+            classe,
+            avatar_url,
+            statut_membre
+          )
+        `)
+        .eq("activity_id", activityId);
+
+      if (fallback.error) {
+        return NextResponse.json({ error: fallback.error.message }, { status: 500 });
+      }
+      rawData = fallback.data;
     }
 
-    return NextResponse.json({ participants: participants || [] });
+    participants = (rawData || []).sort((a: any, b: any) => {
+      const timeA = new Date(a.created_at || a.registered_at || 0).getTime();
+      const timeB = new Date(b.created_at || b.registered_at || 0).getTime();
+      if (timeA !== timeB) return timeA - timeB;
+      return (a.queue_position || 0) - (b.queue_position || 0);
+    });
+
+    return NextResponse.json({ participants });
   } catch (err: any) {
     return NextResponse.json(
       { error: err.message || "Erreur lors de la récupération des participants." },

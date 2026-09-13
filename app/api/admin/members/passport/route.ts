@@ -53,14 +53,10 @@ export async function GET(request: Request) {
     };
 
     // 2. Fetch Activity Registrations (Visites, Formations, Evénements)
-    const { data: registrations } = await (client as any)
+    const { data: rawRegistrations } = await (client as any)
       .from("event_registrations")
       .select(`
-        id,
-        activity_id,
-        status,
-        attended,
-        created_at,
+        *,
         activities (
           id,
           title,
@@ -71,8 +67,13 @@ export async function GET(request: Request) {
           location
         )
       `)
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false });
+      .eq("user_id", userId);
+
+    const registrations = (rawRegistrations || []).sort((a: any, b: any) => {
+      const timeA = new Date(a.created_at || a.registered_at || 0).getTime();
+      const timeB = new Date(b.created_at || b.registered_at || 0).getTime();
+      return timeB - timeA;
+    });
 
     // 3. Fetch Projects (as member or lead)
     const { data: projectMemberships } = await (client as any)
