@@ -1,22 +1,20 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   CheckCircle2,
   Clock,
   ExternalLink,
-  GraduationCap,
   Linkedin,
   Phone,
-  Shield,
-  Award,
   Sparkles,
   Edit3,
   User,
 } from "lucide-react";
 import EditProfileModal, { ProfileData } from "./EditProfileModal";
 import { getRoleLabel, Role } from "@/lib/types/roles";
+import { createClient } from "@/lib/supabase/client";
 
 interface ProfilClientProps {
   initialProfile: (ProfileData & { role: Role; poles?: { name: string } | null }) | null;
@@ -39,16 +37,54 @@ export default function ProfilClient({
   resolvedPoles = [],
 }: ProfilClientProps) {
   const router = useRouter();
+  const supabase = createClient();
   const [isEditOpen, setIsEditOpen] = useState(false);
 
+  // Client-managed state for immediate real-time UI updates
+  const [profile, setProfile] = useState(initialProfile);
+  const [pointsLog, setPointsLog] = useState(initialPointsLog);
+
+  useEffect(() => {
+    setProfile(initialProfile);
+  }, [initialProfile]);
+
+  useEffect(() => {
+    setPointsLog(initialPointsLog);
+  }, [initialPointsLog]);
+
   const statutLabel =
-    initialProfile?.statut_membre === "senior"
+    profile?.statut_membre === "senior"
       ? "Membre Senior (2ème année)"
-      : initialProfile?.statut_membre === "alumni"
+      : profile?.statut_membre === "alumni"
       ? "Alumni (3ème année+)"
       : "Membre Actif (1ère année)";
 
-  const handleProfileUpdated = () => {
+  const handleProfileUpdated = async () => {
+    if (!profile?.id) {
+      router.refresh();
+      return;
+    }
+
+    try {
+      const [pRes, plRes] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("*, poles(name)")
+          .eq("id", profile.id)
+          .single(),
+        supabase
+          .from("points_log")
+          .select("*")
+          .eq("user_id", profile.id)
+          .order("created_at", { ascending: false }),
+      ]);
+
+      if (pRes.data) setProfile(pRes.data as any);
+      if (plRes.data) setPointsLog(plRes.data);
+    } catch (err) {
+      console.error("[ProfilClient] Refresh error:", err);
+    }
+
     router.refresh();
   };
 
@@ -77,27 +113,27 @@ export default function ProfilClient({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="w-20 h-20 rounded-2xl bg-[#1e2020] border border-custom-amber/30 flex items-center justify-center overflow-hidden shrink-0 shadow-lg">
-              {initialProfile?.avatar_url ? (
+              {profile?.avatar_url ? (
                 <img
-                  src={initialProfile.avatar_url}
+                  src={profile.avatar_url}
                   alt="Avatar"
                   className="w-full h-full object-cover"
                 />
               ) : (
                 <span className="font-display font-bold text-2xl text-custom-amber">
-                  {initialProfile?.first_name?.[0] || "U"}
-                  {initialProfile?.last_name?.[0] || "A"}
+                  {profile?.first_name?.[0] || "U"}
+                  {profile?.last_name?.[0] || "A"}
                 </span>
               )}
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="font-display text-2xl font-bold text-white">
-                  {initialProfile?.first_name} {initialProfile?.last_name}
+                  {profile?.first_name} {profile?.last_name}
                 </h2>
               </div>
               <p className="text-muted text-xs mt-0.5">
-                {initialProfile?.email || userEmail}
+                {profile?.email || userEmail}
               </p>
               <div className="flex flex-wrap items-center gap-2 mt-2">
                 {resolvedPoles.length > 0 ? (
@@ -122,7 +158,7 @@ export default function ProfilClient({
                   </span>
                 )}
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-custom-amber/15 text-custom-amber border border-custom-amber/30">
-                  {getRoleLabel(initialProfile?.role, initialProfile?.statut_membre)}
+                  {getRoleLabel(profile?.role, profile?.statut_membre)}
                 </span>
               </div>
             </div>
@@ -133,7 +169,7 @@ export default function ProfilClient({
               Total Points
             </span>
             <span className="font-mono text-3xl font-extrabold text-custom-amber">
-              {initialProfile?.points_total || 0} pts
+              {profile?.points_total || 0} pts
             </span>
           </div>
         </div>
@@ -147,7 +183,7 @@ export default function ProfilClient({
             </span>
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-white">{statutLabel}</span>
-              {initialProfile?.statut_membre_verified ? (
+              {profile?.statut_membre_verified ? (
                 <span className="inline-flex items-center gap-1 text-[10px] text-emerald-400 font-bold">
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   <span>Vérifié</span>
@@ -164,12 +200,12 @@ export default function ProfilClient({
           {/* Classe ou Promotion */}
           <div className="p-3.5 rounded-xl bg-[#1a1c1c] border border-[#2a2c2c] space-y-1">
             <span className="text-[10px] text-[#888] font-bold uppercase tracking-wider block">
-              {initialProfile?.statut_membre === "alumni" ? "Promotion" : "Classe ENIT"}
+              {profile?.statut_membre === "alumni" ? "Promotion" : "Classe ENIT"}
             </span>
             <span className="text-xs font-bold text-white">
-              {initialProfile?.statut_membre === "alumni"
-                ? initialProfile?.year || initialProfile?.promotion || initialProfile?.classe || "Alumni"
-                : initialProfile?.classe || "Non renseigné"}
+              {profile?.statut_membre === "alumni"
+                ? profile?.year || profile?.promotion || profile?.classe || "Alumni"
+                : profile?.classe || "Non renseigné"}
             </span>
           </div>
 
@@ -180,7 +216,7 @@ export default function ProfilClient({
             </span>
             <span className="text-xs font-bold text-white flex items-center gap-1.5">
               <Phone className="w-3.5 h-3.5 text-custom-amber" />
-              {initialProfile?.phone || "Non renseigné"}
+              {profile?.phone || "Non renseigné"}
             </span>
           </div>
 
@@ -190,14 +226,14 @@ export default function ProfilClient({
               Parcours Prépa & Concours
             </span>
             <span className="text-xs font-bold text-white">
-              {initialProfile?.prepa_section || initialProfile?.annee_concours || initialProfile?.bio || initialProfile?.training_availability ? (
+              {profile?.prepa_section || profile?.annee_concours || profile?.bio || profile?.training_availability ? (
                 <>
-                  {initialProfile?.prepa_section ? `${initialProfile.prepa_section} · ` : ""}
-                  {initialProfile?.prepa_etablissement ? `${initialProfile.prepa_etablissement}` : ""}
-                  {initialProfile?.rang_concours ? ` (Rang #${initialProfile.rang_concours})` : ""}
-                  {(initialProfile?.annee_concours || initialProfile?.bio || initialProfile?.training_availability) ? (
+                  {profile?.prepa_section ? `${profile.prepa_section} · ` : ""}
+                  {profile?.prepa_etablissement ? `${profile.prepa_etablissement}` : ""}
+                  {profile?.rang_concours ? ` (Rang #${profile.rang_concours})` : ""}
+                  {(profile?.annee_concours || profile?.bio || profile?.training_availability) ? (
                     <span className="text-[#aaa] block text-[11px] mt-0.5">
-                      Concours : {initialProfile.annee_concours || initialProfile.bio || initialProfile.training_availability}
+                      Concours : {profile.annee_concours || profile.bio || profile.training_availability}
                     </span>
                   ) : null}
                 </>
@@ -210,9 +246,9 @@ export default function ProfilClient({
 
         {/* Links (LinkedIn & CV) */}
         <div className="flex flex-wrap items-center gap-3 pt-4 border-t border-[#2a2c2c]">
-          {initialProfile?.linkedin_url ? (
+          {profile?.linkedin_url ? (
             <a
-              href={initialProfile.linkedin_url}
+              href={profile.linkedin_url}
               target="_blank"
               rel="noreferrer"
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-xs font-bold transition-colors"
@@ -227,7 +263,7 @@ export default function ProfilClient({
             </span>
           )}
 
-          {initialProfile?.cv_url ? (
+          {profile?.cv_url ? (
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 text-emerald-400 text-xs font-bold">
               <CheckCircle2 className="w-3.5 h-3.5" />
               <span>Curriculum Vitae attaché</span>
@@ -248,13 +284,13 @@ export default function ProfilClient({
             <span>Historique des Points</span>
           </h3>
           <span className="text-xs text-[#888]">
-            {initialPointsLog?.length || 0} mouvement{(initialPointsLog?.length || 0) > 1 ? "s" : ""}
+            {pointsLog?.length || 0} mouvement{(pointsLog?.length || 0) > 1 ? "s" : ""}
           </span>
         </div>
 
         <div className="panel-surface overflow-hidden rounded-2xl bg-[#141515] border border-[#2a2c2c]">
-          {initialPointsLog && initialPointsLog.length > 0 ? (
-            initialPointsLog.map((log) => (
+          {pointsLog && pointsLog.length > 0 ? (
+            pointsLog.map((log) => (
               <div
                 key={log.id}
                 className="flex items-center justify-between p-4 border-b border-[#2a2c2c] last:border-b-0 hover:bg-white/[0.02] transition-colors"
@@ -290,11 +326,11 @@ export default function ProfilClient({
       </div>
 
       {/* Edit Profile Modal */}
-      {initialProfile && (
+      {profile && (
         <EditProfileModal
           isOpen={isEditOpen}
           onClose={() => setIsEditOpen(false)}
-          profile={initialProfile}
+          profile={profile}
           onProfileUpdated={handleProfileUpdated}
         />
       )}
