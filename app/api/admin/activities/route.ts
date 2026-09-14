@@ -36,7 +36,7 @@ async function uploadFiles(
       try {
         const compressed = await compressImageBuffer(rawBuffer);
         if (compressed?.buffer) {
-          buffer = compressed.buffer;
+          buffer = Buffer.from(compressed.buffer);
           contentType = compressed.contentType || contentType;
           extension = compressed.extension || extension;
         }
