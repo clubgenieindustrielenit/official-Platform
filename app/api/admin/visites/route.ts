@@ -93,6 +93,7 @@ export async function POST(request: Request) {
       .insert({
         type: "visit",
         category: "Visite",
+        source: "enrollment",
         title: title.trim(),
         description: description?.trim() || "",
         entreprise: entreprise?.trim() || null,

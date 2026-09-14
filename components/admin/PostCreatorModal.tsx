@@ -31,7 +31,7 @@ export interface PostCreatorProps {
   } | null
 }
 
-const CATEGORIES = ['Workshop', 'Hackathon', 'Visite', 'Formation', 'Conférence', 'Autre']
+const CATEGORIES = ['Workshop', 'Hackathon', 'Conférence', 'Autre']
 
 // ─── Drag-and-drop helpers ────────────────────────────────────────────────────
 
@@ -153,7 +153,10 @@ export default function PostCreatorModal({ isOpen, onClose, onSave, editingActiv
   }
 
   const handleSave = async () => {
-    if (!title.trim() || !description.trim()) return
+    if (!title.trim() || !description.trim()) {
+      alert("Veuillez remplir le Titre et la Description pour pouvoir publier.")
+      return
+    }
     setSaving(true)
     try {
       const fd = new FormData()
@@ -173,6 +176,9 @@ export default function PostCreatorModal({ isOpen, onClose, onSave, editingActiv
       await onSave(fd)
       setSaved(true)
       setTimeout(() => onClose(), 1200)
+    } catch (err: any) {
+      console.error(err)
+      alert(err.message || "Erreur lors de l'enregistrement.")
     } finally {
       setSaving(false)
     }
@@ -233,8 +239,12 @@ export default function PostCreatorModal({ isOpen, onClose, onSave, editingActiv
               {step === 3 && (
                 <button
                   onClick={handleSave}
-                  disabled={saving || !title.trim() || !description.trim()}
-                  className="text-xs font-bold text-[#fca311] hover:text-white transition-colors disabled:opacity-40 flex items-center gap-1.5"
+                  disabled={saving}
+                  className={`text-xs font-bold transition-colors flex items-center gap-1.5 ${
+                    !title.trim() || !description.trim()
+                      ? 'text-[#fca311]/60 hover:text-[#fca311]'
+                      : 'text-[#fca311] hover:text-white'
+                  }`}
                 >
                   {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : saved ? <CheckCircle2 className="w-3.5 h-3.5" /> : null}
                   {saved ? 'Publié !' : editingActivity ? 'Modifier' : 'Partager'}
@@ -558,7 +568,7 @@ export default function PostCreatorModal({ isOpen, onClose, onSave, editingActiv
                 <div className="sticky bottom-0 px-5 py-4 border-t border-[#2e2e2e] bg-[#1a1a1a]">
                   <button
                     onClick={handleSave}
-                    disabled={saving || !title.trim() || !description.trim()}
+                    disabled={saving}
                     className="w-full py-3 rounded-xl bg-[#fca311] hover:bg-[#ffc95e] text-black font-extrabold text-sm uppercase tracking-wider transition-all shadow-lg shadow-[#fca311]/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {saving ? (

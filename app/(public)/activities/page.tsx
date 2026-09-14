@@ -35,7 +35,7 @@ export interface Activity {
   created_at: string;
 }
 
-const CATEGORIES = ["Toutes", "Workshop", "Hackathon", "Visite", "Formation", "Conférence"];
+const CATEGORIES = ["Toutes", "Workshop", "Hackathon", "Conférence"];
 const PER_PAGE = 9;
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -80,7 +80,7 @@ export default function ActivitiesPage() {
       params.set("page", String(page));
       if (selectedCategory !== "Toutes") params.set("category", selectedCategory);
 
-      const res = await fetch(`/api/activities?${params.toString()}`);
+      const res = await fetch(`/api/activities?${params.toString()}`, { cache: "no-store" });
       const data = await res.json();
       if (res.ok && data.activities) {
         setActivities(data.activities);

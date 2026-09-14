@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { createClient as createServerSupabase } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export interface ActivityItem {
   id: string;
   title: string;
@@ -40,6 +43,9 @@ export async function GET(request: Request) {
         .from("activities")
         .select("*", { count: "exact" })
         .eq("status", "published")
+        // Only show social posts created via PostCreatorModal.
+        // Événements, visites, formations (source='enrollment') have their own pages.
+        .eq("source", "post")
         .order("date", { ascending: false });
 
       if (category && category !== "All" && category !== "Toutes") {

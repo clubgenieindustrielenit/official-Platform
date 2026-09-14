@@ -132,6 +132,7 @@ export async function POST(request: Request) {
     // Attempt 1: Standard Schema A
     let payload: Record<string, any> = {
       type: "formation",
+      source: "enrollment",
       title: title.trim(),
       description: description?.trim() || "",
       trainer_name: trainer_name?.trim() || null,
@@ -169,6 +170,7 @@ export async function POST(request: Request) {
         title: title.trim(),
         description: description?.trim() || "",
         category: "Formation",
+        source: "enrollment",
         location: location?.trim() || null,
         date: cleanDateStart,
         image_url: cover_image_url || null,

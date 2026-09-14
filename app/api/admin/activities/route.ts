@@ -3,6 +3,9 @@ import { createClient as createServerSupabase } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
 import { compressImageBuffer } from "@/lib/utils/serverImageCompressor";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 type ManageableRole = "admin" | "bureau";
 
 /**
@@ -109,6 +112,9 @@ export async function GET() {
     const { data: activities, error } = await auth.client
       .from("activities")
       .select("*")
+      // Only manage social posts here (created via PostCreatorModal).
+      // Événements/visites/formations are in their own dedicated admin panels.
+      .eq("source", "post")
       .order("date", { ascending: false });
 
     if (error) {
@@ -202,17 +208,13 @@ export async function POST(request: Request) {
       );
     }
 
-    function getActivityType(cat: string): "event" | "visit" | "formation" {
-      if (cat === "Visite") return "visit";
-      if (cat === "Formation") return "formation";
-      return "event";
-    }
-
     const finalDescription = content && content.trim() && content.trim() !== description.trim()
       ? `${description.trim()}\n\n${content.trim()}`
       : description.trim();
 
     const imageUrl = photoUrls[0] || null;
+    // Normalize date to a valid ISO datetime string
+    const normalizedDate = date ? new Date(date).toISOString() : new Date().toISOString();
 
     const { data: newActivity, error: insertError } = await (client as any)
       .from("activities")
@@ -220,13 +222,16 @@ export async function POST(request: Request) {
         title: title.trim(),
         description: finalDescription,
         category,
-        type: getActivityType(category),
-        date: date || new Date().toISOString(),
-        date_start: date || new Date().toISOString(),
+        // Social feed posts: source='post', type='event'
+        source: "post",
+        type: "event",
+        date: normalizedDate,
+        date_start: normalizedDate,
         location: location || null,
         status: status || "published",
         image_url: imageUrl,
         cover_image_url: imageUrl,
+        photo_urls: photoUrls,
         created_by: user?.id,
       })
       .select()
@@ -335,17 +340,13 @@ export async function PUT(request: Request) {
       }
     }
 
-    function getActivityType(cat: string): "event" | "visit" | "formation" {
-      if (cat === "Visite") return "visit";
-      if (cat === "Formation") return "formation";
-      return "event";
-    }
-
     const finalDescription = content && content.trim() && content.trim() !== description.trim()
       ? `${description.trim()}\n\n${content.trim()}`
       : description.trim();
 
-    const imageUrl = photoUrls[0] || "";
+    const imageUrl = photoUrls[0] || null;
+    // Normalize date to a valid ISO datetime string
+    const normalizedDate = date ? new Date(date).toISOString() : new Date().toISOString();
 
     const { data: updatedActivity, error: updateError } = await (client as any)
       .from("activities")
@@ -353,13 +354,16 @@ export async function PUT(request: Request) {
         title: title.trim(),
         description: finalDescription,
         category,
-        type: getActivityType(category),
-        date: date || new Date().toISOString(),
-        date_start: date || new Date().toISOString(),
-        location: location || "",
+        // Keep as social post on edit
+        source: "post",
+        type: "event",
+        date: normalizedDate,
+        date_start: normalizedDate,
+        location: location || null,
         status: status || "published",
         image_url: imageUrl,
         cover_image_url: imageUrl,
+        photo_urls: photoUrls,
       })
       .eq("id", id)
       .select()

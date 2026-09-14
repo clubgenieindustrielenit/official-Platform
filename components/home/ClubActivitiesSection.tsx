@@ -66,7 +66,7 @@ export default function ClubActivitiesSection() {
     async function fetchActivities() {
       try {
         setLoading(true);
-        const res = await fetch("/api/activities?limit=9");
+        const res = await fetch("/api/activities?limit=9", { cache: "no-store" });
         const data = await res.json();
         if (res.ok && data.activities) {
           setActivities(data.activities);
