@@ -59,23 +59,29 @@ export default function ProfilClient({
       ? "Alumni (3ème année+)"
       : "Membre Actif (1ère année)";
 
-  const handleProfileUpdated = async () => {
-    if (!profile?.id) {
+  const handleProfileUpdated = async (updatedProfile?: any) => {
+    if (updatedProfile) {
+      setProfile((prev) => (prev ? { ...prev, ...updatedProfile } : updatedProfile));
+    }
+
+    if (!profile?.id && !updatedProfile?.id) {
       router.refresh();
       return;
     }
+
+    const targetUserId = profile?.id || updatedProfile?.id;
 
     try {
       const [pRes, plRes] = await Promise.all([
         supabase
           .from("profiles")
           .select("*, poles(name)")
-          .eq("id", profile.id)
+          .eq("id", targetUserId)
           .single(),
         supabase
           .from("points_log")
           .select("*")
-          .eq("user_id", profile.id)
+          .eq("user_id", targetUserId)
           .order("created_at", { ascending: false }),
       ]);
 
