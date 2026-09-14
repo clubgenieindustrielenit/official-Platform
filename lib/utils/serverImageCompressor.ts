@@ -1,5 +1,3 @@
-import sharp from "sharp";
-
 export interface CompressionOptions {
   maxWidth?: number;
   maxHeight?: number;
@@ -33,6 +31,8 @@ export async function compressImageBuffer(
   } = options;
 
   try {
+    const sharpModule = await import("sharp");
+    const sharp = sharpModule.default || sharpModule;
     const image = sharp(inputBuffer);
     const metadata = await image.metadata();
 

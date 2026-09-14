@@ -14,9 +14,10 @@ async function uploadFiles(
   client: any
 ): Promise<string[]> {
   const urls: string[] = [];
+  if (!client || !client.storage) return urls;
 
   try {
-    await client.storage.createBucket("activity-images", { public: true });
+    await client.storage.createBucket("activity-images", { public: true }).catch(() => {});
   } catch (_) {
     // Bucket likely already exists
   }
@@ -27,8 +28,21 @@ async function uploadFiles(
       const arrayBuffer = await file.arrayBuffer();
       const rawBuffer = Buffer.from(arrayBuffer);
 
-      // Compress using server-side Sharp utility (preserves aspect ratio, no crop)
-      const { buffer, contentType, extension } = await compressImageBuffer(rawBuffer);
+      // Compress using server-side utility with fallback
+      let buffer = rawBuffer;
+      let contentType = file.type || "image/jpeg";
+      let extension = (file.name && file.name.includes('.')) ? file.name.split('.').pop()! : "jpg";
+
+      try {
+        const compressed = await compressImageBuffer(rawBuffer);
+        if (compressed?.buffer) {
+          buffer = compressed.buffer;
+          contentType = compressed.contentType || contentType;
+          extension = compressed.extension || extension;
+        }
+      } catch (cErr) {
+        console.warn("[activities upload] compression fallback:", cErr);
+      }
 
       const fileName = `act_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${extension}`;
       const filePath = `activities/${fileName}`;
