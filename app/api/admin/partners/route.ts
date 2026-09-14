@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient as createServerSupabase } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
+import { verifyCanManage } from "@/lib/supabase/adminAuth";
 import { compressImageBuffer } from "@/lib/utils/serverImageCompressor";
 import { validateImageFile } from "@/lib/validation/fileUpload";
 
@@ -35,40 +36,11 @@ const DEFAULT_PARTNERS: PartnerRecord[] = [
 ];
 
 async function verifyAdmin() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  const serverSupabase = await createServerSupabase();
-  const {
-    data: { user },
-  } = await serverSupabase.auth.getUser();
-
-  if (!user) {
-    return { isAdmin: false, user: null, error: "Non authentifié.", status: 401 };
+  const auth = await verifyCanManage();
+  if (!auth.ok) {
+    return { isAdmin: false, user: null, error: auth.error, status: auth.status, client: null };
   }
-
-  const client = serviceRoleKey
-    ? createClient(supabaseUrl, serviceRoleKey)
-    : serverSupabase;
-
-  const { data: profile } = await client
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  const role = profile?.role || user.user_metadata?.role || "";
-
-  if (role !== "admin" && role !== "bureau" && role !== "membre_bureau") {
-    return {
-      isAdmin: false,
-      user,
-      error: "Accès refusé. Privilèges requis.",
-      status: 403,
-    };
-  }
-
-  return { isAdmin: true, user, client };
+  return { isAdmin: true, user: auth.user, error: null, status: 200, client: auth.client };
 }
 
 /**

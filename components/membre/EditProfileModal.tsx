@@ -49,7 +49,7 @@ interface EditProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
   profile: ProfileData;
-  onProfileUpdated: () => void;
+  onProfileUpdated: (updatedProfile?: ProfileData) => void;
 }
 
 const PREPA_SCHOOLS = [
@@ -356,7 +356,7 @@ export default function EditProfileModal({
 
       setSuccess("Profil mis à jour avec succès !");
       setTimeout(() => {
-        onProfileUpdated();
+        onProfileUpdated(resData.profile);
         onClose();
       }, 700);
     } catch (err: any) {

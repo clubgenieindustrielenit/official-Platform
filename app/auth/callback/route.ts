@@ -24,6 +24,13 @@ export async function GET(request: Request) {
 
       const role = profile?.role || data.user.user_metadata?.role || "membre_actif";
 
+      // Cache role in user_metadata if not present or changed
+      if (data.user.user_metadata?.role !== role) {
+        await supabase.auth.updateUser({
+          data: { role },
+        }).catch(() => {});
+      }
+
       let destination = "/membre";
       if (role === "admin") {
         destination = "/admin";

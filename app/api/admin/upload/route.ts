@@ -1,40 +1,14 @@
 import { NextResponse } from "next/server";
-import { createClient as createServerSupabase } from "@/lib/supabase/server";
-import { createClient } from "@supabase/supabase-js";
+import { verifyCanManage } from "@/lib/supabase/adminAuth";
 
 export async function POST(request: Request) {
   try {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-    const serverSupabase = await createServerSupabase();
-    const {
-      data: { user },
-    } = await serverSupabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: "Non authentifié." }, { status: 401 });
+    const auth = await verifyCanManage();
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
 
-    const client = serviceRoleKey
-      ? createClient(supabaseUrl, serviceRoleKey)
-      : serverSupabase;
-
-    const { data: profile } = await (client as any)
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    const role: string = profile?.role || user.user_metadata?.role || "";
-
-    if (role !== "admin" && role !== "bureau" && role !== "membre_bureau") {
-      return NextResponse.json(
-        { error: "Accès refusé." },
-        { status: 403 }
-      );
-    }
-
+    const { client } = auth;
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
     const bucketName = (formData.get("bucket") as string) || "testimonials";

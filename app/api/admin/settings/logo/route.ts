@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 import { NextResponse } from "next/server";
 import { createClient as createServerSupabase } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
+import { verifyCanManage } from "@/lib/supabase/adminAuth";
 import fs from "fs";
 import path from "path";
 import { validateImageFile, MAX_LOGO_SIZE_BYTES } from "@/lib/validation/fileUpload";
@@ -59,35 +60,11 @@ function resetLocalLogo() {
 }
 
 async function verifyAdmin() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  const serverSupabase = await createServerSupabase();
-  const {
-    data: { user },
-  } = await serverSupabase.auth.getUser();
-
-  if (!user) {
-    return { isAdmin: false, user: null, client: null, error: "Non authentifié." };
+  const auth = await verifyCanManage(true);
+  if (!auth.ok) {
+    return { isAdmin: false, user: null, client: null, error: auth.error };
   }
-
-  const client = serviceRoleKey
-    ? createClient(supabaseUrl, serviceRoleKey)
-    : serverSupabase;
-
-  const { data: profile } = await client
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  const role = profile?.role || user.user_metadata?.role;
-
-  if (role !== "admin") {
-    return { isAdmin: false, user, client, error: "Accès refusé. Privilèges Administrateur requis." };
-  }
-
-  return { isAdmin: true, user, client };
+  return { isAdmin: true, user: auth.user, client: auth.client };
 }
 
 export async function GET() {
@@ -170,7 +147,7 @@ export async function POST(request: Request) {
 
     // Attempt to update site_settings table in Supabase (non-blocking)
     try {
-      const { error: dbErr } = await client
+      const { error: dbErr } = await (client as any)
         .from("site_settings")
         .upsert({
           setting_key: "site_logo",
@@ -201,7 +178,7 @@ export async function DELETE() {
     resetLocalLogo();
 
     try {
-      await client
+      await (client as any)
         .from("site_settings")
         .upsert({
           setting_key: "site_logo",
