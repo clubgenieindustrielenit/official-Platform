@@ -1964,8 +1964,14 @@ export default function AdminDashboardPage() {
                 method: editingActivity ? 'PUT' : 'POST',
                 body: fd,
               });
-              const data = await res.json();
-              if (!res.ok) throw new Error(data.error || 'Erreur.');
+              let data: any = {};
+              const responseText = await res.text();
+              try {
+                data = JSON.parse(responseText);
+              } catch (_) {
+                data = { error: `Erreur serveur (${res.status}): ${responseText.substring(0, 120) || res.statusText}` };
+              }
+              if (!res.ok) throw new Error(data.error || 'Erreur lors de la sauvegarde.');
               addToast('success', editingActivity ? 'Activité mise à jour !' : 'Activité créée !');
               setIsActivityModalOpen(false);
               fetchActivities();
