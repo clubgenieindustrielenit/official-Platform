@@ -93,7 +93,7 @@ export default function PartnersMarquee() {
           </div>
 
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-custom-white tracking-tight leading-tight">
-            Ils soutiennent nos initiatives
+            Ils nous ont fait confiance
           </h2>
 
           <p className="text-sm sm:text-base text-custom-gray/70 leading-relaxed max-w-2xl mx-auto">
