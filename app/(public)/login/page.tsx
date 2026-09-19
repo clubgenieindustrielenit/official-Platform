@@ -29,24 +29,53 @@ export default function LoginPage() {
   const router = useRouter();
   const supabase = createClient();
 
+  const [cooldown, setCooldown] = useState(0);
+
+  React.useEffect(() => {
+    if (cooldown > 0) {
+      const timer = setTimeout(() => setCooldown(cooldown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [cooldown]);
+
   const handleSendResetEmail = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!forgotEmail.trim()) return;
+    if (!forgotEmail.trim() || cooldown > 0) return;
     setForgotLoading(true);
     setForgotError(null);
     setForgotSuccess(false);
 
     try {
-      const redirectUrl = `${window.location.origin}/reset-password`;
-      const { error: resetErr } = await supabase.auth.resetPasswordForEmail(forgotEmail.trim(), {
-        redirectTo: redirectUrl,
+      const res = await fetch("/api/auth/reset-password-request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: forgotEmail.trim() }),
       });
 
-      if (resetErr) throw resetErr;
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        if (res.status === 429 || data.error?.toLowerCase()?.includes("rate limit")) {
+          setCooldown(60);
+          throw new Error(
+            "Un email de réinitialisation vous a déjà été envoyé très récemment. Veuillez vérifier votre boîte de réception (et spams) ou patienter une minute avant de réessayer."
+          );
+        }
+        throw new Error(data.error || "Impossible d'envoyer l'email de réinitialisation.");
+      }
 
       setForgotSuccess(true);
+      setCooldown(60);
     } catch (err: any) {
-      setForgotError(err.message || "Impossible d'envoyer l'email de réinitialisation.");
+      const msg = err.message || "";
+      if (msg.toLowerCase().includes("rate limit") || msg.toLowerCase().includes("too many requests")) {
+        setCooldown(60);
+        setForgotError(
+          "Un email de réinitialisation vous a déjà été envoyé récemment. Veuillez vérifier votre boîte de réception (et spams) ou patienter 60 secondes avant de réessayer."
+        );
+      } else {
+        setForgotError(msg || "Impossible d'envoyer l'email de réinitialisation.");
+      }
     } finally {
       setForgotLoading(false);
     }
@@ -329,11 +358,13 @@ export default function LoginPage() {
                     </button>
                     <button
                       type="submit"
-                      disabled={forgotLoading}
-                      className="w-2/3 bg-custom-amber hover:bg-[#ffc887] text-black font-bold py-3 rounded-xl text-xs transition-colors flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(252,163,17,0.2)] disabled:opacity-70 cursor-pointer"
+                      disabled={forgotLoading || cooldown > 0}
+                      className="w-2/3 bg-custom-amber hover:bg-[#ffc887] text-black font-bold py-3 rounded-xl text-xs transition-colors flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(252,163,17,0.2)] disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer"
                     >
                       {forgotLoading ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : cooldown > 0 ? (
+                        <span>Patienter ({cooldown}s)</span>
                       ) : (
                         <>
                           <span>Envoyer le lien</span>
