@@ -39,6 +39,7 @@ const PREPA_SCHOOLS = [
   "IPEIS",
   "IPEIB",
   "IPEIT",
+  "IPEST",
   "IPEIEM",
   "FSS",
   "FST",
