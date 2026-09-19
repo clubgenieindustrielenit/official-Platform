@@ -1,22 +1,17 @@
 "use client";
 
 import React, { useState } from "react";
-import { motion } from "framer-motion";
 import {
   ExternalLink,
   CheckCircle2,
-  Clock,
-  Users,
   AlertCircle,
   Loader2,
   Sparkles,
-  Calendar,
-  MapPin,
   Building,
   ShieldCheck,
 } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
 import { Database } from "@/lib/supabase/database.types";
+
 
 type Activity = Database["public"]["Tables"]["activities"]["Row"];
 type Registration = Database["public"]["Tables"]["event_registrations"]["Row"];
@@ -34,7 +29,6 @@ export default function VisitEnrollmentCard({
   initialRegisteredCount,
   userId,
 }: VisitEnrollmentCardProps) {
-  const supabase = createClient();
   const [registration, setRegistration] = useState<Registration | null>(initialRegistration);
   const [registeredCount, setRegisteredCount] = useState<number>(initialRegisteredCount);
   const [isLoading, setIsLoading] = useState(false);
@@ -93,11 +87,8 @@ export default function VisitEnrollmentCard({
         setRegisteredCount((prev) => prev + 1);
       }
 
-      setSuccessMessage(
-        data.status === "waitlisted"
-          ? "Vous avez été ajouté à la liste d'attente !"
-          : "Votre inscription à cette visite a été confirmée avec succès !"
-      );
+      // Status panel below handles the post-registration display
+      setSuccessMessage(null);
     } catch (err: any) {
       setError(err.message || "Impossible de s'inscrire pour le moment.");
     } finally {
@@ -176,31 +167,36 @@ export default function VisitEnrollmentCard({
 
       {/* Status or Enrollment Action */}
       <div className="space-y-4">
-        {/* If user is confirmed */}
-        {registration && registration.status === "confirmed" ? (
-          <div className="p-5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-emerald-400 font-bold text-sm">
+        {registration ? (
+          /* ── Post-inscription: simple pending confirmation panel ── */
+          <div className="p-5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
                 <CheckCircle2 className="w-5 h-5" />
-                <span>Vous êtes officiellement inscrit à cette visite !</span>
               </div>
-              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300">
-                Place confirmée
-              </span>
+              <div className="space-y-1">
+                <p className="text-sm font-bold text-emerald-300">
+                  {activity.google_form_url
+                    ? "Merci de remplir ce formulaire pour que votre inscription soit enregistrée !"
+                    : "Inscription enregistrée !"}
+                </p>
+                <p className="text-xs text-emerald-200/70 leading-relaxed">
+                  {activity.google_form_url
+                    ? "Votre demande a bien été notée. Veuillez impérativement compléter le Google Form ci-dessous afin que l'administration du club puisse valider votre place."
+                    : "Votre demande a bien été reçue. L'administration du club confirmera votre place prochainement."}
+                </p>
+              </div>
             </div>
-            <p className="text-xs text-emerald-200/80 leading-relaxed">
-              Votre présence a bien été enregistrée. Rendez-vous à la date et au lieu indiqués. En cas d&apos;empêchement, pensez à libérer votre place.
-            </p>
 
-            <div className="pt-2 flex items-center gap-3">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-1">
               {activity.google_form_url && (
                 <a
                   href={activity.google_form_url}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-semibold transition-colors"
+                  className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-custom-amber hover:bg-[#ffc887] text-black font-extrabold text-xs uppercase tracking-wider transition-all shadow-[0_0_20px_rgba(252,163,17,0.25)] hover:shadow-[0_0_30px_rgba(252,163,17,0.45)] cursor-pointer"
                 >
-                  <span>Revoir le Google Form</span>
+                  <span>Remplir le Google Form</span>
                   <ExternalLink className="w-3.5 h-3.5" />
                 </a>
               )}
@@ -208,34 +204,15 @@ export default function VisitEnrollmentCard({
                 type="button"
                 onClick={handleCancel}
                 disabled={isLoading}
-                className="px-4 py-2 rounded-xl border border-red-500/30 hover:bg-red-500/10 text-red-400 text-xs font-semibold transition-colors disabled:opacity-50"
+                className="inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl border border-red-500/30 hover:bg-red-500/10 text-red-400 text-xs font-semibold transition-colors disabled:opacity-50 cursor-pointer"
               >
-                {isLoading ? "Annulation..." : "Se désister"}
+                {isLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                <span>{isLoading ? "Traitement..." : "Se désister"}</span>
               </button>
             </div>
           </div>
-        ) : registration && registration.status === "waitlisted" ? (
-          <div className="p-5 rounded-2xl bg-amber-500/10 border border-amber-500/20 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-amber-400 font-bold text-sm">
-                <Clock className="w-5 h-5" />
-                <span>En liste d&apos;attente</span>
-              </div>
-            </div>
-            <p className="text-xs text-amber-200/80">
-              Dès qu&apos;une place se libère, votre inscription sera automatiquement confirmée.
-            </p>
-            <button
-              type="button"
-              onClick={handleCancel}
-              disabled={isLoading}
-              className="px-4 py-2 rounded-xl border border-amber-500/30 hover:bg-amber-500/10 text-amber-400 text-xs font-semibold"
-            >
-              {isLoading ? "Traitement..." : "Quitter la liste d'attente"}
-            </button>
-          </div>
         ) : (
-          /* User Not Registered Yet */
+          /* ── Pre-inscription ── */
           <div className="space-y-4">
             {activity.google_form_url ? (
               <div className="p-5 rounded-2xl bg-gradient-to-r from-custom-navy/80 via-[#1a233b] to-[#141515] border border-custom-amber/30 space-y-4">
@@ -253,37 +230,24 @@ export default function VisitEnrollmentCard({
                   </div>
                 </div>
 
-                {/* Highlighted Glowing Enroll Button */}
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-2">
-                  <a
-                    href={activity.google_form_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex-1 inline-flex items-center justify-center gap-2 py-3.5 px-6 rounded-2xl bg-custom-amber hover:bg-[#ffc887] text-black font-extrabold text-xs uppercase tracking-wider transition-all shadow-[0_0_25px_rgba(252,163,17,0.35)] hover:shadow-[0_0_35px_rgba(252,163,17,0.55)] cursor-pointer transform hover:-translate-y-0.5 text-center"
-                  >
-                    <span>S&apos;enrôler à cette visite (Google Form) 🚀</span>
-                    <ExternalLink className="w-4 h-4" />
-                  </a>
-
-                  <button
-                    type="button"
-                    onClick={handleRegister}
-                    disabled={isLoading}
-                    className="inline-flex items-center justify-center gap-2 py-3.5 px-5 rounded-2xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs transition-colors border border-white/15 cursor-pointer disabled:opacity-50"
-                  >
-                    {isLoading ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <>
-                        <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                        <span>Confirmer sur la plateforme</span>
-                      </>
-                    )}
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={handleRegister}
+                  disabled={isLoading || isPast}
+                  className="w-full inline-flex items-center justify-center gap-2 py-3.5 px-6 rounded-2xl bg-custom-amber hover:bg-[#ffc887] text-black font-extrabold text-xs uppercase tracking-wider transition-all shadow-[0_0_25px_rgba(252,163,17,0.35)] hover:shadow-[0_0_35px_rgba(252,163,17,0.55)] cursor-pointer transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <>
+                      <ShieldCheck className="w-4 h-4" />
+                      <span>{isPast ? "Visite terminée" : isFull ? "Rejoindre la liste d'attente" : "S'inscrire"}</span>
+                    </>
+                  )}
+                </button>
               </div>
             ) : (
-              /* Direct In-App Registration */
+              /* Direct In-App Registration (no Google Form) */
               <div className="pt-2">
                 <button
                   type="button"
@@ -304,7 +268,7 @@ export default function VisitEnrollmentCard({
                   ) : isFull ? (
                     "Rejoindre la liste d'attente"
                   ) : (
-                    "S'inscrire à cette visite 🚀"
+                    "S'inscrire 🚀"
                   )}
                 </button>
               </div>
@@ -315,3 +279,4 @@ export default function VisitEnrollmentCard({
     </div>
   );
 }
+

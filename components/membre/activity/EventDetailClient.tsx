@@ -6,7 +6,6 @@ import {
   MapPin,
   Clock,
   Sparkles,
-  Info,
   Building,
   ArrowLeft,
   Image as ImageIcon,
@@ -133,37 +132,6 @@ export default function EventDetailClient({ activity }: Props) {
         )}
       </div>
 
-      {/* Informative Notice: Inscription opening later */}
-      <div className="bg-gradient-to-r from-sky-950/40 via-[#141d2f] to-[#141515] border border-sky-500/30 rounded-3xl p-6 sm:p-8 space-y-4 shadow-xl relative overflow-hidden">
-        <div className="flex items-start gap-3.5">
-          <div className="w-10 h-10 rounded-2xl bg-sky-500/15 border border-sky-500/30 flex items-center justify-center text-sky-400 shrink-0">
-            <Info className="w-5 h-5" />
-          </div>
-          <div className="space-y-1">
-            <h3 className="text-base font-bold text-white">
-              Inscriptions Bientôt Ouvertes
-            </h3>
-            <p className="text-xs text-[#aaa] leading-relaxed">
-              Cet événement fait partie des grands rendez-vous annuels du Club GI ENIT. Les inscriptions et réservations de places ouvriront prochainement. Restez informés via l&apos;espace Annonces du club !
-            </p>
-          </div>
-        </div>
-
-        <div className="pt-2 flex items-center gap-3">
-          <Link
-            href="/membre/annonces"
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-sky-500/15 hover:bg-sky-500/25 text-sky-300 border border-sky-500/30 text-xs font-bold transition-colors"
-          >
-            <span>Consulter les Annonces du Club</span>
-          </Link>
-          <Link
-            href="/membre/calendrier"
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white text-xs font-semibold transition-colors"
-          >
-            <span>Voir dans le Calendrier</span>
-          </Link>
-        </div>
-      </div>
 
       {/* Optional Recap Link if finished */}
       {activity.recap_url && (
