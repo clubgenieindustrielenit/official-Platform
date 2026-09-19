@@ -137,7 +137,7 @@ export async function POST(request: Request) {
     if (error) {
       console.error("[calendar] POST insert error:", error);
       return NextResponse.json(
-        { error: "Erreur lors de la création de l'activité." },
+        { error: error.message || "Erreur lors de la création de l'activité." },
         { status: 500 }
       );
     }
@@ -146,7 +146,7 @@ export async function POST(request: Request) {
   } catch (err: unknown) {
     console.error("[calendar] POST unexpected error:", err);
     return NextResponse.json(
-      { error: "Erreur lors de la création de l'activité" },
+      { error: (err as any)?.message || "Erreur lors de la création de l'activité" },
       { status: 500 }
     );
   }
@@ -203,7 +203,7 @@ export async function PUT(request: Request) {
     if (error) {
       console.error("[calendar] PUT update error:", error);
       return NextResponse.json(
-        { error: "Erreur lors de la modification de l'activité." },
+        { error: error.message || "Erreur lors de la modification de l'activité." },
         { status: 500 }
       );
     }
@@ -212,7 +212,7 @@ export async function PUT(request: Request) {
   } catch (err: unknown) {
     console.error("[calendar] PUT unexpected error:", err);
     return NextResponse.json(
-      { error: "Erreur lors de la modification de l'activité" },
+      { error: (err as any)?.message || "Erreur lors de la modification de l'activité" },
       { status: 500 }
     );
   }
