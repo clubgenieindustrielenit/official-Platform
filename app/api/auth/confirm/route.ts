@@ -6,11 +6,11 @@ import type { EmailOtpType } from "@supabase/supabase-js";
  * GET /api/auth/confirm?token_hash=...&type=recovery&next=/reset-password
  *
  * Verifies a Supabase token_hash (used in password-reset emails) and
- * redirects the user to the `next` page with an active session.
+ * redirects the user to the next page with an active session.
  *
  * We build the email link ourselves in reset-password-request/route.ts
- * pointing here, so it always uses the production URL — bypassing the
- * Supabase "Site URL" dashboard setting (which may still be localhost).
+ * pointing here, so it always uses the production URL - bypassing the
+ * Supabase Site URL dashboard setting (which may still be localhost).
  */
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
@@ -19,7 +19,7 @@ export async function GET(request: Request) {
   const next = requestUrl.searchParams.get("next") || "/reset-password";
 
   if (!token_hash) {
-    return NextResponse.redirect(`${requestUrl.origin}/login?error=missing_token`);
+    return NextResponse.redirect(requestUrl.origin + "/login?error=missing_token");
   }
 
   const supabase = await createClient();
@@ -32,11 +32,10 @@ export async function GET(request: Request) {
   if (error) {
     console.error("[auth/confirm] verifyOtp error:", error.message);
     return NextResponse.redirect(
-      `${requestUrl.origin}/login?error=invalid_or_expired_link`
+      requestUrl.origin + "/login?error=invalid_or_expired_link"
     );
   }
 
-  // Redirect to target page (e.g. /reset-password) — user now has an active session
-  const redirectTo = next.startsWith("/") ? `${requestUrl.origin}${next}` : next;
+  const redirectTo = next.startsWith("/") ? requestUrl.origin + next : next;
   return NextResponse.redirect(redirectTo);
 }
