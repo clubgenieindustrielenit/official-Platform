@@ -928,16 +928,33 @@ export default function AdminDashboardPage() {
 
     setMessageModal((prev) => ({ ...prev, submitting: true }));
     try {
-      const { error } = await supabase.from("notifications").insert({
-        user_id: messageModal.member.id,
-        type: "système",
-        title: messageModal.title.trim() || "Message du Bureau CGI-ENIT",
-        message: messageModal.message.trim(),
-        link: "/dashboard",
-        read: false,
+      const res = await fetch("/api/admin/members/notify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: messageModal.member.id,
+          type: "système",
+          title: messageModal.title.trim() || "Message du Bureau CGI-ENIT",
+          message: messageModal.message.trim(),
+          link: "/dashboard",
+        }),
       });
 
-      if (error) throw error;
+      if (!res.ok) {
+        // Fallback to direct client insert if API route is unreachable
+        const { error: directErr } = await supabase.from("notifications").insert({
+          user_id: messageModal.member.id,
+          type: "système",
+          title: messageModal.title.trim() || "Message du Bureau CGI-ENIT",
+          message: messageModal.message.trim(),
+          link: "/dashboard",
+          read: false,
+        });
+        if (directErr) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error || directErr.message || "Erreur lors de l'envoi du message.");
+        }
+      }
 
       addToast("success", `Message envoyé à ${messageModal.member.first_name || messageModal.member.email} avec succès !`);
       setMessageModal((prev) => ({ ...prev, isOpen: false }));
