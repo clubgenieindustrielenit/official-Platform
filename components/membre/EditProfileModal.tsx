@@ -19,8 +19,8 @@ import {
   Camera,
   Info,
 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
+import { generateCvFileName, getCvPublicUrl } from "@/lib/storage";
 
 export interface ProfileData {
   id: string;
@@ -76,6 +76,7 @@ const CLASSES = [
   "2AGI2",
   "2AGI3",
   "3AGI",
+  "Autre",
 ];
 
 const PROMOTIONS = [
@@ -295,8 +296,7 @@ export default function EditProfileModal({
 
       // 2. Upload CV if new file selected
       if (cvFile) {
-        const fileExt = cvFile.name.split(".").pop();
-        const cvPath = `cv-${profile.id}-${Date.now()}.${fileExt}`;
+        const cvPath = generateCvFileName(firstName, lastName, profile.id, cvFile.name);
         const { error: cvUploadErr } = await supabase.storage
           .from("cvs")
           .upload(cvPath, cvFile, { upsert: true });
@@ -313,7 +313,7 @@ export default function EditProfileModal({
         const { data: pubCv } = supabase.storage
           .from("cvs")
           .getPublicUrl(cvPath);
-        finalCvUrl = pubCv.publicUrl || cvPath;
+        finalCvUrl = pubCv.publicUrl;
       } else if (!cvUrl && !cvFile) {
         finalCvUrl = null;
       }
@@ -557,7 +557,7 @@ export default function EditProfileModal({
               <div className="flex items-center justify-between">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-white flex items-center gap-2">
                   <Sparkles className="w-3.5 h-3.5 text-custom-amber" />
-                  <span>Informations Optionnelles (Gagnez jusqu'à +35 pts)</span>
+                  <span>Informations Optionnelles (Gagnez jusqu'à +40 pts)</span>
                 </h3>
               </div>
 

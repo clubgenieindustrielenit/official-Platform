@@ -84,6 +84,7 @@ import Toast, { ToastMessage } from "@/components/ui/Toast";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import Sidebar from "@/components/ui/Sidebar";
 import { useSiteSettings } from "@/components/providers/SiteSettingsProvider";
+import { getCvPublicUrl } from "@/lib/storage";
 
 export interface InvitationRecord {
   id: string;
@@ -677,6 +678,35 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const handleChangeStatutMembre = async (
+    member: MemberRecord,
+    newStatut: "actif" | "senior" | "alumni"
+  ) => {
+    if (member.statut_membre === newStatut) return;
+
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ statut_membre: newStatut })
+        .eq("id", member.id);
+
+      if (error) throw error;
+
+      addToast("success", `Statut au club de ${member.first_name || member.email} mis à jour : ${newStatut}`);
+      setMembers((prev) =>
+        prev.map((m) => (m.id === member.id ? { ...m, statut_membre: newStatut } : m))
+      );
+
+      if (selectedMemberForDetails?.id === member.id) {
+        setSelectedMemberForDetails((prev) =>
+          prev ? { ...prev, statut_membre: newStatut } : null
+        );
+      }
+    } catch (err: any) {
+      addToast("error", err.message || "Erreur lors du changement de statut au club.");
+    }
+  };
+
   const handleChangeMemberPoles = async (
     member: MemberRecord,
     newPoleIds: string[]
@@ -837,6 +867,84 @@ export default function AdminDashboardPage() {
       addToast("error", err.message || "Erreur lors de l'attribution des points.");
     } finally {
       setPointsModal((prev) => ({ ...prev, submitting: false }));
+    }
+  };
+
+  // --- MEMBER POINTS HISTORY STATE ---
+  const [memberPointsLog, setMemberPointsLog] = useState<any[]>([]);
+  const [loadingMemberPointsLog, setLoadingMemberPointsLog] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (selectedMemberForDetails?.id) {
+      setLoadingMemberPointsLog(true);
+      supabase
+        .from("points_log")
+        .select("*")
+        .eq("user_id", selectedMemberForDetails.id)
+        .order("created_at", { ascending: false })
+        .then(({ data, error }) => {
+          if (!error && data) setMemberPointsLog(data);
+          else setMemberPointsLog([]);
+          setLoadingMemberPointsLog(false);
+        });
+    } else {
+      setMemberPointsLog([]);
+    }
+  }, [selectedMemberForDetails?.id, supabase]);
+
+  // --- DIRECT MESSAGE TO MEMBER STATE & HANDLER ---
+  const [messageModal, setMessageModal] = useState<{
+    isOpen: boolean;
+    member: MemberRecord | null;
+    title: string;
+    message: string;
+    submitting: boolean;
+  }>({
+    isOpen: false,
+    member: null,
+    title: "Message du Bureau CGI-ENIT",
+    message: "",
+    submitting: false,
+  });
+
+  const handleOpenMessageModal = (member: MemberRecord) => {
+    setMessageModal({
+      isOpen: true,
+      member,
+      title: "Message du Bureau CGI-ENIT",
+      message: "",
+      submitting: false,
+    });
+  };
+
+  const handleSendMessageToMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!messageModal.member) return;
+
+    if (!messageModal.message.trim()) {
+      addToast("error", "Veuillez saisir un message.");
+      return;
+    }
+
+    setMessageModal((prev) => ({ ...prev, submitting: true }));
+    try {
+      const { error } = await supabase.from("notifications").insert({
+        user_id: messageModal.member.id,
+        type: "système",
+        title: messageModal.title.trim() || "Message du Bureau CGI-ENIT",
+        message: messageModal.message.trim(),
+        link: "/dashboard",
+        read: false,
+      });
+
+      if (error) throw error;
+
+      addToast("success", `Message envoyé à ${messageModal.member.first_name || messageModal.member.email} avec succès !`);
+      setMessageModal((prev) => ({ ...prev, isOpen: false }));
+    } catch (err: any) {
+      addToast("error", err.message || "Erreur lors de l'envoi du message.");
+    } finally {
+      setMessageModal((prev) => ({ ...prev, submitting: false }));
     }
   };
 
@@ -2181,15 +2289,15 @@ export default function AdminDashboardPage() {
           {/* MEMBER PROFILE & DETAILS MODAL */}
           <AnimatePresence>
             {selectedMemberForDetails && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-y-auto">
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/80 backdrop-blur-md">
                 <motion.div
                   initial={{ opacity: 0, scale: 0.95, y: 10 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                  className="bg-[#141515] border border-[#333535] rounded-3xl p-6 sm:p-8 max-w-2xl w-full shadow-2xl space-y-6 my-8"
+                  className="bg-[#141515] border border-[#333535] rounded-3xl p-5 sm:p-7 max-w-2xl w-full max-h-[92vh] flex flex-col shadow-2xl overflow-hidden my-auto"
                 >
-                  {/* Header */}
-                  <div className="flex items-start justify-between pb-5 border-b border-[#2a2c2c] gap-4">
+                  {/* Header (Fixed Top) */}
+                  <div className="flex items-start justify-between pb-4 border-b border-[#2a2c2c] gap-4 shrink-0">
                     <div className="flex items-center gap-4">
                       <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#1e2020] to-[#14213d] border-2 border-custom-amber/40 flex items-center justify-center font-bold text-custom-amber text-lg shrink-0 shadow-lg">
                         {selectedMemberForDetails.first_name ? selectedMemberForDetails.first_name[0].toUpperCase() : selectedMemberForDetails.email.substring(0, 1).toUpperCase()}
@@ -2230,222 +2338,301 @@ export default function AdminDashboardPage() {
                     </button>
                   </div>
 
-                  {/* Quick Highlights Bar */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div className="bg-[#1e2020] border border-[#2a2c2c] rounded-2xl p-3 text-center">
-                      <span className="text-[10px] text-[#888] uppercase font-semibold block">Points</span>
-                      <span className="text-base font-bold text-custom-amber font-mono">
-                        {selectedMemberForDetails.points_total || 0} pts
-                      </span>
-                    </div>
-                    <div className="bg-[#1e2020] border border-[#2a2c2c] rounded-2xl p-3 text-center">
-                      <span className="text-[10px] text-[#888] uppercase font-semibold block">
-                        {selectedMemberForDetails.statut_membre === "alumni" ? "Promotion" : "Classe"}
-                      </span>
-                      <span className="text-xs font-bold text-white">
-                        {selectedMemberForDetails.statut_membre === "alumni"
-                          ? selectedMemberForDetails.year || selectedMemberForDetails.classe || "Alumni"
-                          : selectedMemberForDetails.classe || "N/A"}
-                      </span>
-                    </div>
-                    <div className="bg-[#1e2020] border border-[#2a2c2c] rounded-2xl p-3 text-center">
-                      <span className="text-[10px] text-[#888] uppercase font-semibold block">Statut Club</span>
-                      <span className="text-xs font-bold text-white capitalize">
-                        {selectedMemberForDetails.statut_membre || "Actif"}
-                      </span>
-                    </div>
-                    <div className="bg-[#1e2020] border border-[#2a2c2c] rounded-2xl p-3 text-center">
-                      <span className="text-[10px] text-[#888] uppercase font-semibold block">Validation</span>
-                      {selectedMemberForDetails.statut_membre_verified ? (
-                        <span className="text-xs font-bold text-emerald-400 inline-flex items-center gap-1 justify-center">
-                          <CheckCircle2 className="w-3.5 h-3.5" /> Vérifié
+                  {/* Scrollable Body Container */}
+                  <div className="flex-1 overflow-y-auto pr-1 sm:pr-2 space-y-5 my-4">
+                    {/* Quick Highlights Bar */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <div className="bg-[#1e2020] border border-[#2a2c2c] rounded-2xl p-3 text-center">
+                        <span className="text-[10px] text-[#888] uppercase font-semibold block">Points</span>
+                        <span className="text-base font-bold text-custom-amber font-mono">
+                          {selectedMemberForDetails.points_total || 0} pts
                         </span>
-                      ) : (
-                        <span className="text-xs font-bold text-amber-400">En attente</span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Detail Sections */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                    {/* Contact & Identité */}
-                    <div className="bg-[#181a1a] border border-[#2a2c2c] rounded-2xl p-4 space-y-3">
-                      <h4 className="font-bold text-white uppercase text-[11px] tracking-wider flex items-center gap-2 text-custom-amber">
-                        <User className="w-3.5 h-3.5" />
-                        <span>Contact & Compte</span>
-                      </h4>
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-center py-1 border-b border-[#252727]">
-                          <span className="text-[#888]">Téléphone :</span>
-                          <span className="text-white font-mono">
-                            {selectedMemberForDetails.phone || "Non renseigné"}
+                      </div>
+                      <div className="bg-[#1e2020] border border-[#2a2c2c] rounded-2xl p-3 text-center">
+                        <span className="text-[10px] text-[#888] uppercase font-semibold block">
+                          {selectedMemberForDetails.statut_membre === "alumni" ? "Promotion" : "Classe"}
+                        </span>
+                        <span className="text-xs font-bold text-white">
+                          {selectedMemberForDetails.statut_membre === "alumni"
+                            ? selectedMemberForDetails.year || selectedMemberForDetails.classe || "Alumni"
+                            : selectedMemberForDetails.classe || "N/A"}
+                        </span>
+                      </div>
+                      <div className="bg-[#1e2020] border border-[#2a2c2c] rounded-2xl p-3 text-center">
+                        <span className="text-[10px] text-[#888] uppercase font-semibold block">Statut Club</span>
+                        <span className="text-xs font-bold text-white capitalize">
+                          {selectedMemberForDetails.statut_membre || "Actif"}
+                        </span>
+                      </div>
+                      <div className="bg-[#1e2020] border border-[#2a2c2c] rounded-2xl p-3 text-center">
+                        <span className="text-[10px] text-[#888] uppercase font-semibold block">Validation</span>
+                        {selectedMemberForDetails.statut_membre_verified ? (
+                          <span className="text-xs font-bold text-emerald-400 inline-flex items-center gap-1 justify-center">
+                            <CheckCircle2 className="w-3.5 h-3.5" /> Vérifié
                           </span>
-                        </div>
-                        <div className="flex justify-between items-center py-1 border-b border-[#252727]">
-                          <span className="text-[#888]">Inscription :</span>
-                          <span className="text-white">
-                            {new Date(selectedMemberForDetails.created_at).toLocaleDateString("fr-FR", {
-                              day: "numeric",
-                              month: "long",
-                              year: "numeric",
-                            })}
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center py-1">
-                          <span className="text-[#888]">Profil complété :</span>
-                          <span className="text-white">
-                            {selectedMemberForDetails.profile_completed_at
-                              ? new Date(selectedMemberForDetails.profile_completed_at).toLocaleDateString("fr-FR")
-                              : "Non"}
-                          </span>
-                        </div>
+                        ) : (
+                          <span className="text-xs font-bold text-amber-400">En attente</span>
+                        )}
                       </div>
                     </div>
 
-                    {/* Cursus Académique & Prépa */}
-                    <div className="bg-[#181a1a] border border-[#2a2c2c] rounded-2xl p-4 space-y-3">
-                      <h4 className="font-bold text-white uppercase text-[11px] tracking-wider flex items-center gap-2 text-custom-amber">
-                        <GraduationCap className="w-3.5 h-3.5" />
-                        <span>Parcours & Prépa</span>
-                      </h4>
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-center py-1 border-b border-[#252727]">
-                          <span className="text-[#888]">Section Prépa :</span>
-                          <span className="text-white font-bold">
-                            {selectedMemberForDetails.prepa_section || "Non renseigné"}
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center py-1 border-b border-[#252727]">
-                          <span className="text-[#888]">Établissement :</span>
-                          <span className="text-white">
-                            {selectedMemberForDetails.prepa_etablissement || "Non renseigné"}
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center py-1 border-b border-[#252727]">
-                          <span className="text-[#888]">Rang Concours :</span>
-                          <span className="text-custom-amber font-mono font-bold">
-                            {selectedMemberForDetails.rang_concours ? `#${selectedMemberForDetails.rang_concours}` : "Non renseigné"}
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center py-1">
-                          <span className="text-[#888]">Année Concours :</span>
-                          <span className="text-white font-mono">
-                            {selectedMemberForDetails.bio || selectedMemberForDetails.training_availability || "Non renseigné"}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Rôle & Pôle Club */}
-                    <div className="bg-[#181a1a] border border-[#2a2c2c] rounded-2xl p-4 space-y-3">
-                      <h4 className="font-bold text-white uppercase text-[11px] tracking-wider flex items-center gap-2 text-custom-amber">
-                        <Layers className="w-3.5 h-3.5" />
-                        <span>Organisation Club</span>
-                      </h4>
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-center py-1 border-b border-[#252727]">
-                          <span className="text-[#888]">Pôles assignés :</span>
-                          <MemberPoleMultiSelect
-                            memberId={selectedMemberForDetails.id}
-                            assignedPoleIds={selectedMemberForDetails.pole_ids}
-                            fallbackPoleId={selectedMemberForDetails.pole_id}
-                            poles={poles}
-                            onChange={(newPoleIds) => {
-                              handleChangeMemberPoles(selectedMemberForDetails, newPoleIds);
-                              setSelectedMemberForDetails((prev) =>
-                                prev
-                                  ? {
-                                      ...prev,
-                                      pole_ids: newPoleIds,
-                                      pole_id: newPoleIds[0] || null,
-                                    }
-                                  : null
-                              );
-                            }}
-                          />
-                        </div>
-                        <div className="flex justify-between items-center py-1 border-b border-[#252727]">
-                          <span className="text-[#888]">Rôle actuel :</span>
-                          <select
-                            value={selectedMemberForDetails.role}
-                            onChange={(e) => {
-                              const newRole = e.target.value as any;
-                              handleChangeRole(selectedMemberForDetails, newRole);
-                              setSelectedMemberForDetails((prev) => prev ? { ...prev, role: newRole } : null);
-                            }}
-                            className="bg-[#121414] border border-[#333535] text-[10px] text-white rounded-lg px-2 py-1 outline-none cursor-pointer"
-                          >
-                            <option value="membre_actif">Membre Actif</option>
-                            <option value="membre_bureau">Membre Bureau</option>
-                            <option value="admin">Admin</option>
-                          </select>
-                        </div>
-                        <div className="flex justify-between items-center py-1">
-                          <span className="text-[#888]">Statut Vérification :</span>
-                          {selectedMemberForDetails.statut_membre_verified ? (
-                            <span className="text-emerald-400 font-semibold flex items-center gap-1">
-                              <CheckCircle2 className="w-3 h-3" /> Validé
+                    {/* Detail Sections */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                      {/* Contact & Identité */}
+                      <div className="bg-[#181a1a] border border-[#2a2c2c] rounded-2xl p-4 space-y-3">
+                        <h4 className="font-bold text-white uppercase text-[11px] tracking-wider flex items-center gap-2 text-custom-amber">
+                          <User className="w-3.5 h-3.5" />
+                          <span>Contact & Compte</span>
+                        </h4>
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center py-1 border-b border-[#252727]">
+                            <span className="text-[#888]">Téléphone :</span>
+                            <span className="text-white font-mono">
+                              {selectedMemberForDetails.phone || "Non renseigné"}
                             </span>
-                          ) : (
-                            <button
-                              onClick={() => {
-                                handleVerifyMemberStatus(selectedMemberForDetails);
-                                setSelectedMemberForDetails((prev) => prev ? { ...prev, statut_membre_verified: true } : null);
+                          </div>
+                          <div className="flex justify-between items-center py-1 border-b border-[#252727]">
+                            <span className="text-[#888]">Inscription :</span>
+                            <span className="text-white">
+                              {selectedMemberForDetails.created_at && !isNaN(new Date(selectedMemberForDetails.created_at).getTime())
+                                ? new Date(selectedMemberForDetails.created_at).toLocaleDateString("fr-FR", {
+                                    day: "numeric",
+                                    month: "long",
+                                    year: "numeric",
+                                  })
+                                : selectedMemberForDetails.joined_at && !isNaN(new Date(selectedMemberForDetails.joined_at).getTime())
+                                ? new Date(selectedMemberForDetails.joined_at).toLocaleDateString("fr-FR", {
+                                    day: "numeric",
+                                    month: "long",
+                                    year: "numeric",
+                                  })
+                                : "Non renseigné"}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center py-1">
+                            <span className="text-[#888]">Profil complété :</span>
+                            <span className="text-white">
+                              {selectedMemberForDetails.profile_completed_at
+                                ? new Date(selectedMemberForDetails.profile_completed_at).toLocaleDateString("fr-FR")
+                                : "Non"}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Cursus Académique & Prépa */}
+                      <div className="bg-[#181a1a] border border-[#2a2c2c] rounded-2xl p-4 space-y-3">
+                        <h4 className="font-bold text-white uppercase text-[11px] tracking-wider flex items-center gap-2 text-custom-amber">
+                          <GraduationCap className="w-3.5 h-3.5" />
+                          <span>Parcours & Prépa</span>
+                        </h4>
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center py-1 border-b border-[#252727]">
+                            <span className="text-[#888]">Section Prépa :</span>
+                            <span className="text-white font-bold">
+                              {selectedMemberForDetails.prepa_section || "Non renseigné"}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center py-1 border-b border-[#252727]">
+                            <span className="text-[#888]">Établissement :</span>
+                            <span className="text-white">
+                              {selectedMemberForDetails.prepa_etablissement || "Non renseigné"}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center py-1 border-b border-[#252727]">
+                            <span className="text-[#888]">Rang Concours :</span>
+                            <span className="text-custom-amber font-mono font-bold">
+                              {selectedMemberForDetails.rang_concours ? `#${selectedMemberForDetails.rang_concours}` : "Non renseigné"}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center py-1">
+                            <span className="text-[#888]">Année Concours :</span>
+                            <span className="text-white font-mono">
+                              {selectedMemberForDetails.bio || selectedMemberForDetails.training_availability || "Non renseigné"}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Rôle & Pôle Club */}
+                      <div className="bg-[#181a1a] border border-[#2a2c2c] rounded-2xl p-4 space-y-3">
+                        <h4 className="font-bold text-white uppercase text-[11px] tracking-wider flex items-center gap-2 text-custom-amber">
+                          <Layers className="w-3.5 h-3.5" />
+                          <span>Organisation Club</span>
+                        </h4>
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center py-1 border-b border-[#252727]">
+                            <span className="text-[#888]">Pôles assignés :</span>
+                            <MemberPoleMultiSelect
+                              memberId={selectedMemberForDetails.id}
+                              assignedPoleIds={selectedMemberForDetails.pole_ids}
+                              fallbackPoleId={selectedMemberForDetails.pole_id}
+                              poles={poles}
+                              onChange={(newPoleIds) => {
+                                handleChangeMemberPoles(selectedMemberForDetails, newPoleIds);
+                                setSelectedMemberForDetails((prev) =>
+                                  prev
+                                    ? {
+                                        ...prev,
+                                        pole_ids: newPoleIds,
+                                        pole_id: newPoleIds[0] || null,
+                                      }
+                                    : null
+                                );
                               }}
-                              className="px-2 py-0.5 rounded bg-custom-amber/20 hover:bg-custom-amber/30 text-custom-amber text-[10px] font-bold transition-colors cursor-pointer"
+                            />
+                          </div>
+                          <div className="flex justify-between items-center py-1 border-b border-[#252727]">
+                            <span className="text-[#888]">Rôle actuel :</span>
+                            <select
+                              value={selectedMemberForDetails.role}
+                              onChange={(e) => {
+                                const newRole = e.target.value as any;
+                                handleChangeRole(selectedMemberForDetails, newRole);
+                                setSelectedMemberForDetails((prev) => prev ? { ...prev, role: newRole } : null);
+                              }}
+                              className="bg-[#121414] border border-[#333535] text-[10px] text-white rounded-lg px-2 py-1 outline-none cursor-pointer"
                             >
-                              Vérifier maintenant
-                            </button>
-                          )}
+                              <option value="membre_actif">Membre Actif</option>
+                              <option value="membre_bureau">Membre Bureau</option>
+                              <option value="admin">Admin</option>
+                            </select>
+                          </div>
+                          <div className="flex justify-between items-center py-1 border-b border-[#252727]">
+                            <span className="text-[#888]">Statut au Club :</span>
+                            <select
+                              value={selectedMemberForDetails.statut_membre || "actif"}
+                              onChange={(e) => {
+                                const newStatut = e.target.value as any;
+                                handleChangeStatutMembre(selectedMemberForDetails, newStatut);
+                                setSelectedMemberForDetails((prev) => prev ? { ...prev, statut_membre: newStatut } : null);
+                              }}
+                              className="bg-[#121414] border border-[#333535] text-[10px] text-custom-amber font-bold rounded-lg px-2 py-1 outline-none cursor-pointer"
+                            >
+                              <option value="actif">Membre Actif</option>
+                              <option value="senior">Membre Senior</option>
+                              <option value="alumni">Alumni</option>
+                            </select>
+                          </div>
+                          <div className="flex justify-between items-center py-1">
+                            <span className="text-[#888]">Statut Vérification :</span>
+                            {selectedMemberForDetails.statut_membre_verified ? (
+                              <span className="text-emerald-400 font-semibold flex items-center gap-1">
+                                <CheckCircle2 className="w-3 h-3" /> Validé
+                              </span>
+                            ) : (
+                              <button
+                                onClick={() => {
+                                  handleVerifyMemberStatus(selectedMemberForDetails);
+                                  setSelectedMemberForDetails((prev) => prev ? { ...prev, statut_membre_verified: true } : null);
+                                }}
+                                className="px-2 py-0.5 rounded bg-custom-amber/20 hover:bg-custom-amber/30 text-custom-amber text-[10px] font-bold transition-colors cursor-pointer"
+                              >
+                                Vérifier maintenant
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Liens & Documents */}
+                      <div className="bg-[#181a1a] border border-[#2a2c2c] rounded-2xl p-4 space-y-3">
+                        <h4 className="font-bold text-white uppercase text-[11px] tracking-wider flex items-center gap-2 text-custom-amber">
+                          <Briefcase className="w-3.5 h-3.5" />
+                          <span>Documents & Réseaux</span>
+                        </h4>
+                        <div className="space-y-2.5">
+                          <div>
+                            <span className="text-[#888] block text-[10px] mb-1">LinkedIn :</span>
+                            {selectedMemberForDetails.linkedin_url ? (
+                              <a
+                                href={selectedMemberForDetails.linkedin_url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500/20 text-xs font-semibold transition-colors"
+                              >
+                                <span>Ouvrir LinkedIn</span>
+                                <ExternalLink className="w-3 h-3" />
+                              </a>
+                            ) : (
+                              <span className="text-[#666] text-[11px]">Aucun lien renseigné</span>
+                            )}
+                          </div>
+                          <div>
+                            <span className="text-[#888] block text-[10px] mb-1">Curriculum Vitae :</span>
+                            {selectedMemberForDetails.cv_url ? (
+                              <a
+                                href={getCvPublicUrl(selectedMemberForDetails.cv_url)!}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 text-xs font-semibold transition-colors"
+                              >
+                                <Download className="w-3 h-3" />
+                                <span>Consulter le CV (PDF)</span>
+                              </a>
+                            ) : (
+                              <span className="text-[#666] text-[11px]">Aucun CV importé</span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
 
-                    {/* Liens & Documents */}
+                    {/* Historique des Points du Membre */}
                     <div className="bg-[#181a1a] border border-[#2a2c2c] rounded-2xl p-4 space-y-3">
-                      <h4 className="font-bold text-white uppercase text-[11px] tracking-wider flex items-center gap-2 text-custom-amber">
-                        <Briefcase className="w-3.5 h-3.5" />
-                        <span>Documents & Réseaux</span>
-                      </h4>
-                      <div className="space-y-2.5">
-                        <div>
-                          <span className="text-[#888] block text-[10px] mb-1">LinkedIn :</span>
-                          {selectedMemberForDetails.linkedin_url ? (
-                            <a
-                              href={selectedMemberForDetails.linkedin_url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500/20 text-xs font-semibold transition-colors"
-                            >
-                              <span>Ouvrir LinkedIn</span>
-                              <ExternalLink className="w-3 h-3" />
-                            </a>
-                          ) : (
-                            <span className="text-[#666] text-[11px]">Aucun lien renseigné</span>
-                          )}
-                        </div>
-                        <div>
-                          <span className="text-[#888] block text-[10px] mb-1">Curriculum Vitae :</span>
-                          {selectedMemberForDetails.cv_url ? (
-                            <a
-                              href={selectedMemberForDetails.cv_url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 text-xs font-semibold transition-colors"
-                            >
-                              <Download className="w-3 h-3" />
-                              <span>Consulter le CV (PDF)</span>
-                            </a>
-                          ) : (
-                            <span className="text-[#666] text-[11px]">Aucun CV importé</span>
-                          )}
-                        </div>
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-bold text-white uppercase text-[11px] tracking-wider flex items-center gap-2 text-custom-amber">
+                          <Sparkles className="w-3.5 h-3.5" />
+                          <span>Historique des Points du Membre</span>
+                        </h4>
+                        <span className="text-[10px] text-[#888] font-mono">
+                          {memberPointsLog.length} mouvement{memberPointsLog.length > 1 ? "s" : ""}
+                        </span>
+                      </div>
+
+                      <div className="max-h-44 overflow-y-auto divide-y divide-[#252727] pr-1">
+                        {loadingMemberPointsLog ? (
+                          <div className="py-4 text-center text-xs text-[#888]">
+                            Chargement de l&apos;historique...
+                          </div>
+                        ) : memberPointsLog.length > 0 ? (
+                          memberPointsLog.map((log) => (
+                            <div key={log.id} className="py-2.5 flex items-center justify-between gap-3">
+                              <div>
+                                <p className="text-xs text-white font-medium">{log.reason}</p>
+                                <p className="text-[10px] text-[#666] font-mono mt-0.5">
+                                  {new Date(log.created_at).toLocaleDateString("fr-FR", {
+                                    day: "2-digit",
+                                    month: "short",
+                                    year: "numeric",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })}
+                                </p>
+                              </div>
+                              <span
+                                className={`font-mono font-bold text-xs shrink-0 px-2 py-0.5 rounded ${
+                                  log.amount > 0
+                                    ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                                    : "bg-red-500/10 text-red-400 border border-red-500/20"
+                                }`}
+                              >
+                                {log.amount > 0 ? "+" : ""}
+                                {log.amount} pts
+                              </span>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="py-4 text-center text-xs text-[#666]">
+                            Aucun mouvement de points enregistré pour ce membre.
+                          </p>
+                        )}
                       </div>
                     </div>
                   </div>
 
-                  {/* Modal Footer / Actions */}
-                  <div className="flex flex-wrap items-center justify-between pt-4 border-t border-[#2a2c2c] gap-3">
+                  {/* Modal Footer / Actions (Fixed Bottom) */}
+                  <div className="flex flex-wrap items-center justify-between pt-4 border-t border-[#2a2c2c] gap-3 shrink-0 bg-[#141515] z-10">
                     <div className="flex items-center gap-2 flex-wrap">
                       <button
                         type="button"
@@ -2471,6 +2658,19 @@ export default function AdminDashboardPage() {
                       >
                         <Sparkles className="w-4 h-4 text-custom-amber" />
                         <span>Attribuer des points</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const member = selectedMemberForDetails;
+                          setSelectedMemberForDetails(null);
+                          handleOpenMessageModal(member);
+                        }}
+                        className="px-4 py-2.5 rounded-xl bg-blue-500/15 hover:bg-blue-500/25 text-blue-400 font-bold text-xs flex items-center gap-2 transition-colors cursor-pointer border border-blue-500/30"
+                      >
+                        <MessageSquare className="w-4 h-4" />
+                        <span>Message</span>
                       </button>
                     </div>
 
@@ -2580,6 +2780,102 @@ export default function AdminDashboardPage() {
                           <Loader2 className="w-4 h-4 animate-spin" />
                         ) : (
                           "Valider l'attribution"
+                        )}
+                      </button>
+                    </div>
+                  </form>
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>
+
+          {/* SEND MESSAGE TO MEMBER MODAL */}
+          <AnimatePresence>
+            {messageModal.isOpen && messageModal.member && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  className="bg-[#141515] border border-[#333535] rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 text-white"
+                >
+                  <div className="flex items-center justify-between pb-3 border-b border-[#2a2c2c]">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+                        <MessageSquare className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-white">
+                          Envoyer un message au membre
+                        </h3>
+                        <p className="text-[11px] text-[#888]">
+                          Destinataire :{" "}
+                          <span className="text-white font-semibold">
+                            {messageModal.member.first_name || messageModal.member.email} {messageModal.member.last_name || ""}
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setMessageModal((prev) => ({ ...prev, isOpen: false }))}
+                      className="p-1 text-[#888] hover:text-white rounded-lg hover:bg-white/10"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  <form onSubmit={handleSendMessageToMember} className="space-y-4">
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-semibold text-[#888] uppercase">
+                        Titre de la notification
+                      </label>
+                      <input
+                        type="text"
+                        value={messageModal.title}
+                        onChange={(e) =>
+                          setMessageModal((prev) => ({ ...prev, title: e.target.value }))
+                        }
+                        placeholder="Ex: Message du Bureau CGI-ENIT"
+                        className="w-full bg-[#1e2020] border border-[#333535] focus:border-custom-amber rounded-xl py-2.5 px-3.5 text-xs text-white outline-none"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-semibold text-[#888] uppercase">
+                        Contenu du message *
+                      </label>
+                      <textarea
+                        required
+                        rows={4}
+                        value={messageModal.message}
+                        onChange={(e) =>
+                          setMessageModal((prev) => ({ ...prev, message: e.target.value }))
+                        }
+                        placeholder="Saisissez votre message ici... Il s'affichera directement dans les notifications du membre."
+                        className="w-full bg-[#1e2020] border border-[#333535] focus:border-custom-amber rounded-xl py-2.5 px-3.5 text-xs text-white outline-none resize-none"
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#2a2c2c]">
+                      <button
+                        type="button"
+                        onClick={() => setMessageModal((prev) => ({ ...prev, isOpen: false }))}
+                        className="px-4 py-2 rounded-xl border border-[#333535] text-xs font-semibold text-[#aaa] hover:bg-white/5 cursor-pointer"
+                      >
+                        Annuler
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={messageModal.submitting}
+                        className="px-5 py-2 rounded-xl bg-blue-500 hover:bg-blue-600 text-white font-bold text-xs transition-colors flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                      >
+                        {messageModal.submitting ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <>
+                            <Send className="w-3.5 h-3.5" />
+                            <span>Envoyer le message</span>
+                          </>
                         )}
                       </button>
                     </div>

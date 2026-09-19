@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useI18n } from "@/lib/i18n/context";
+import { generateCvFileName } from "@/lib/storage";
 
 interface PreinscriptionFormProps {
   userId: string;
@@ -56,6 +57,7 @@ const CLASSES = [
   "2AGI2",
   "2AGI3",
   "3AGI",
+  "Autre",
 ];
 
 const PROMOTIONS = [
@@ -170,14 +172,16 @@ export default function PreinscriptionForm({
 
       // 2. Upload CV if provided
       if (cvFile) {
-        const fileExt = cvFile.name.split(".").pop();
-        const cvPath = `cv-${userId}-${Date.now()}.${fileExt}`;
+        const cvPath = generateCvFileName(firstName, lastName, userId, cvFile.name);
         const { error: cvErr } = await supabase.storage
           .from("cvs")
           .upload(cvPath, cvFile, { upsert: true });
 
         if (!cvErr) {
-          cvUrl = cvPath; // Store path for signed URL retrieval
+          const { data: pubCv } = supabase.storage
+            .from("cvs")
+            .getPublicUrl(cvPath);
+          cvUrl = pubCv.publicUrl;
         } else {
           console.warn("CV upload failed:", cvErr);
         }
@@ -207,6 +211,7 @@ export default function PreinscriptionForm({
       }
 
       if (anneeConcours.trim()) {
+        updateData.annee_concours = anneeConcours.trim();
         updateData.bio = anneeConcours.trim();
         updateData.training_availability = anneeConcours.trim();
       }
@@ -221,10 +226,19 @@ export default function PreinscriptionForm({
         if (!isNaN(parsed)) updateData.rang_concours = parsed;
       }
 
-      const { error: updateErr } = await supabase
+      let { error: updateErr } = await supabase
         .from("profiles")
         .update(updateData)
         .eq("id", userId);
+
+      if (updateErr && (updateErr.message?.includes("annee_concours") || updateErr.code === "PGRST204")) {
+        delete updateData.annee_concours;
+        const fallbackRes = await supabase
+          .from("profiles")
+          .update(updateData)
+          .eq("id", userId);
+        updateErr = fallbackRes.error;
+      }
 
       if (updateErr) throw updateErr;
 
@@ -271,7 +285,7 @@ export default function PreinscriptionForm({
         <div className="flex items-center gap-3">
           <Sparkles className="w-5 h-5 text-custom-amber shrink-0 animate-pulse" />
           <p className="text-xs text-white/90 font-medium">
-            {t("preinscription.optional_points_banner", "Gagnez jusqu'à +35 points en complétant les champs optionnels !")}
+            {t("preinscription.optional_points_banner", "Gagnez jusqu'à +40 points en complétant les champs optionnels !")}
           </p>
         </div>
         <div className="shrink-0 bg-custom-amber text-black font-extrabold text-xs px-3 py-1.5 rounded-xl shadow-sm">
@@ -398,49 +412,6 @@ export default function PreinscriptionForm({
                 </select>
               </div>
             )}
-
-            {/* Statut Membre */}
-            <div className="space-y-1 sm:col-span-2">
-              <label className="text-[11px] font-semibold text-[#888] uppercase">
-                {t("preinscription.member_status", "Statut Membre")} *
-              </label>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                {[
-                  {
-                    id: "actif",
-                    label: t("preinscription.status_actif", "Actif"),
-                    desc: "1ère année",
-                    color: "border-blue-500/40 bg-blue-500/10 text-blue-300",
-                  },
-                  {
-                    id: "senior",
-                    label: t("preinscription.status_senior", "Senior"),
-                    desc: "2ème année",
-                    color: "border-amber-500/40 bg-amber-500/10 text-amber-300",
-                  },
-                  {
-                    id: "alumni",
-                    label: t("preinscription.status_alumni", "Alumni"),
-                    desc: "3ème année+",
-                    color: "border-purple-500/40 bg-purple-500/10 text-purple-300",
-                  },
-                ].map((s) => (
-                  <button
-                    type="button"
-                    key={s.id}
-                    onClick={() => setStatutMembre(s.id as any)}
-                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                      statutMembre === s.id
-                        ? `${s.color} ring-1 ring-custom-amber`
-                        : "border-[#333535] bg-[#1e2020] text-[#888] hover:border-[#444]"
-                    }`}
-                  >
-                    <div className="font-bold text-xs">{s.label}</div>
-                    <div className="text-[10px] text-[#888] mt-0.5">{s.desc}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
           </div>
         </div>
 

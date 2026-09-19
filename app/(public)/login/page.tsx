@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Mail, Lock, Eye, EyeOff, ChevronLeft, ArrowRight, AlertCircle, Loader2 } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, ChevronLeft, ArrowRight, AlertCircle, Loader2, CheckCircle2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useSiteSettings } from "@/components/providers/SiteSettingsProvider";
 import { useI18n } from "@/lib/i18n/context";
@@ -16,10 +16,41 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Forgot password modal state
+  const [showForgotModal, setShowForgotModal] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotSuccess, setForgotSuccess] = useState(false);
+  const [forgotError, setForgotError] = useState<string | null>(null);
+
   const { logoUrl } = useSiteSettings();
   
   const router = useRouter();
   const supabase = createClient();
+
+  const handleSendResetEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!forgotEmail.trim()) return;
+    setForgotLoading(true);
+    setForgotError(null);
+    setForgotSuccess(false);
+
+    try {
+      const redirectUrl = `${window.location.origin}/reset-password`;
+      const { error: resetErr } = await supabase.auth.resetPasswordForEmail(forgotEmail.trim(), {
+        redirectTo: redirectUrl,
+      });
+
+      if (resetErr) throw resetErr;
+
+      setForgotSuccess(true);
+    } catch (err: any) {
+      setForgotError(err.message || "Impossible d'envoyer l'email de réinitialisation.");
+    } finally {
+      setForgotLoading(false);
+    }
+  };
 
   const redirectUserByRole = async (user: any) => {
     const { data: profile } = await supabase
@@ -55,7 +86,6 @@ export default function LoginPage() {
     setError(null);
 
     try {
-      // 1. Sign in with email/password
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -64,10 +94,7 @@ export default function LoginPage() {
       if (signInError) throw signInError;
       if (!data.user) throw new Error("Utilisateur introuvable.");
 
-      // Refresh router so server components receive updated auth cookies
       router.refresh();
-
-      // 2. Redirect based on role in replace mode
       await redirectUserByRole(data.user);
 
     } catch (err: any) {
@@ -154,6 +181,18 @@ export default function LoginPage() {
                 <label className="text-xs font-semibold text-muted uppercase tracking-wider">
                   {t("login.password", "Mot de passe")}
                 </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setForgotEmail(email);
+                    setShowForgotModal(true);
+                    setForgotSuccess(false);
+                    setForgotError(null);
+                  }}
+                  className="text-xs text-custom-amber hover:underline font-medium cursor-pointer"
+                >
+                  Mot de passe oublié ?
+                </button>
               </div>
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -204,6 +243,111 @@ export default function LoginPage() {
           </div>
         </div>
       </motion.div>
+
+      {/* Forgot Password Modal */}
+      <AnimatePresence>
+        {showForgotModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-surface-card border border-surface-border rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl relative"
+            >
+              <button
+                type="button"
+                onClick={() => setShowForgotModal(false)}
+                className="absolute top-4 right-4 text-muted hover:text-foreground text-xl cursor-pointer"
+              >
+                ✕
+              </button>
+
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-3 bg-custom-amber/10 border border-custom-amber/30 rounded-2xl text-custom-amber">
+                  <Mail className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-foreground">Mot de passe oublié ?</h3>
+                  <p className="text-xs text-muted">Saisissez votre email pour recevoir le lien de réinitialisation.</p>
+                </div>
+              </div>
+
+              {forgotSuccess ? (
+                <div className="space-y-4 my-4">
+                  <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-emerald-300 text-xs flex items-start gap-3">
+                    <CheckCircle2 className="w-5 h-5 shrink-0 text-emerald-400 mt-0.5" />
+                    <div>
+                      <p className="font-bold text-emerald-200">Email envoyé avec succès !</p>
+                      <p className="mt-1 text-[#bbb]">
+                        Un lien de réinitialisation a été envoyé à <strong>{forgotEmail}</strong>. Veuillez consulter votre boîte mail (et vos spams).
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowForgotModal(false)}
+                    className="w-full bg-surface-input hover:bg-surface-border text-foreground font-semibold py-3 rounded-xl transition-colors text-sm cursor-pointer"
+                  >
+                    Fermer
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleSendResetEmail} className="space-y-4 mt-4">
+                  {forgotError && (
+                    <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-xs flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 shrink-0" />
+                      <span>{forgotError}</span>
+                    </div>
+                  )}
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-muted uppercase tracking-wider">
+                      Adresse Email
+                    </label>
+                    <div className="relative group">
+                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <Mail className="w-5 h-5 text-muted group-focus-within:text-custom-amber transition-colors" />
+                      </div>
+                      <input
+                        type="email"
+                        required
+                        value={forgotEmail}
+                        onChange={(e) => setForgotEmail(e.target.value)}
+                        placeholder="prenom.nom@enit.utm.tn"
+                        className="w-full bg-surface-input border border-surface-border focus:border-custom-amber rounded-xl py-3 pl-11 pr-4 text-foreground text-sm outline-none transition-all duration-300 placeholder-muted"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowForgotModal(false)}
+                      className="w-1/3 bg-surface-input hover:bg-surface-border text-muted hover:text-foreground font-semibold py-3 rounded-xl text-xs transition-colors cursor-pointer"
+                    >
+                      Annuler
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={forgotLoading}
+                      className="w-2/3 bg-custom-amber hover:bg-[#ffc887] text-black font-bold py-3 rounded-xl text-xs transition-colors flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(252,163,17,0.2)] disabled:opacity-70 cursor-pointer"
+                    >
+                      {forgotLoading ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <>
+                          <span>Envoyer le lien</span>
+                          <ArrowRight className="w-4 h-4" />
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -82,12 +82,19 @@ function calculateProfilePointsDelta(
   }
 
   // 7. Année Concours / Bio (5 pts)
-  const hadBio = Boolean((oldP?.bio && String(oldP.bio).trim() !== "") || (oldP?.training_availability && String(oldP.training_availability).trim() !== ""));
-  const hasBio = Boolean(newP?.bio && String(newP.bio).trim() !== "");
-  if (!hadBio && hasBio) {
+  const hadConcoursYear = Boolean(
+    (oldP?.annee_concours && String(oldP.annee_concours).trim() !== "") ||
+    (oldP?.bio && String(oldP.bio).trim() !== "") ||
+    (oldP?.training_availability && String(oldP.training_availability).trim() !== "")
+  );
+  const hasConcoursYear = Boolean(
+    (newP?.annee_concours && String(newP.annee_concours).trim() !== "") ||
+    (newP?.bio && String(newP.bio).trim() !== "")
+  );
+  if (!hadConcoursYear && hasConcoursYear) {
     delta += 5;
     logsToInsert.push({ amount: 5, reason: "Profil complété : Année de concours renseignée" });
-  } else if (hadBio && !hasBio) {
+  } else if (hadConcoursYear && !hasConcoursYear) {
     delta -= 5;
     logsToInsert.push({ amount: -5, reason: "Profil modifié : Année de concours supprimée" });
   }
@@ -167,6 +174,7 @@ export async function PUT(request: Request) {
           ? Number(rang_concours)
           : null,
       bio: finalConcoursYear,
+      annee_concours: finalConcoursYear,
     };
 
     // ── 5. Calculate Points Delta and Logs ───────────────────────────────────
@@ -182,6 +190,7 @@ export async function PUT(request: Request) {
       statut_membre,
       year: statut_membre === "alumni" ? finalPromotion : null,
       bio: finalConcoursYear,
+      annee_concours: finalConcoursYear,
       avatar_url: candidatePayload.avatar_url,
       cv_url: candidatePayload.cv_url,
       linkedin_url: candidatePayload.linkedin_url,
@@ -217,20 +226,32 @@ export async function PUT(request: Request) {
       );
     }
 
-    // ── 7. Insert Points Movement Logs ──────────────────────────────────────
+    // ── 7. Insert Points Movement Logs (Deduplicated) ────────────────────────
     if (logsToInsert.length > 0) {
-      const logRows = logsToInsert.map((l) => ({
-        user_id: user.id,
-        amount: l.amount,
-        reason: l.reason,
-      }));
-
-      const { error: logErr } = await (dbClient as any)
+      // Check for recent duplicate logs in the last 15 seconds to avoid double-logging with DB triggers
+      const { data: recentLogs } = await (dbClient as any)
         .from("points_log")
-        .insert(logRows);
+        .select("reason")
+        .eq("user_id", user.id)
+        .gt("created_at", new Date(Date.now() - 15000).toISOString());
 
-      if (logErr) {
-        console.error("[membre/profile] Points log insert error:", logErr);
+      const recentReasons = new Set((recentLogs || []).map((r: any) => r.reason));
+      const uniqueLogsToInsert = logsToInsert.filter((l) => !recentReasons.has(l.reason));
+
+      if (uniqueLogsToInsert.length > 0) {
+        const logRows = uniqueLogsToInsert.map((l) => ({
+          user_id: user.id,
+          amount: l.amount,
+          reason: l.reason,
+        }));
+
+        const { error: logErr } = await (dbClient as any)
+          .from("points_log")
+          .insert(logRows);
+
+        if (logErr) {
+          console.error("[membre/profile] Points log insert error:", logErr);
+        }
       }
     }
 

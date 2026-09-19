@@ -17,7 +17,7 @@ export async function GET() {
     // 2. Members overview
     const { data: allMembers } = await (client as any)
       .from("profiles")
-      .select("id, first_name, last_name, avatar_url, role, pole_id, pole_ids, points_total, statut_membre, statut_membre_verified, profile_completed_at, is_active, joined_at");
+      .select("id, first_name, last_name, avatar_url, role, pole_id, pole_ids, points_total, statut_membre, statut_membre_verified, profile_completed_at, is_active, joined_at, cv_url, linkedin_url, year, classe, prepa_etablissement");
 
     const members = allMembers || [];
     const totalMembers = members.length;
@@ -29,6 +29,12 @@ export async function GET() {
       ? Math.round((members.filter((m: any) => m.profile_completed_at).length / totalMembers) * 100)
       : 0;
 
+    // Advanced CV & LinkedIn metrics
+    const cvMembersCount = members.filter((m: any) => Boolean(m.cv_url)).length;
+    const linkedinMembersCount = members.filter((m: any) => Boolean(m.linkedin_url)).length;
+    const cvRate = totalMembers > 0 ? Math.round((cvMembersCount / totalMembers) * 100) : 0;
+    const linkedinRate = totalMembers > 0 ? Math.round((linkedinMembersCount / totalMembers) * 100) : 0;
+
     // Statut breakdown
     const statutBreakdown = {
       actif: members.filter((m: any) => m.statut_membre === "actif").length,
@@ -36,6 +42,28 @@ export async function GET() {
       alumni: members.filter((m: any) => m.statut_membre === "alumni").length,
       non_renseigne: members.filter((m: any) => !m.statut_membre).length,
     };
+
+    // Prepa breakdown
+    const prepaCounts: Record<string, number> = {};
+    members.forEach((m: any) => {
+      if (m.prepa_etablissement) {
+        const prep = m.prepa_etablissement.trim();
+        prepaCounts[prep] = (prepaCounts[prep] || 0) + 1;
+      }
+    });
+    const prepaBreakdown = Object.entries(prepaCounts)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count);
+
+    // Promotion / Class breakdown
+    const classCounts: Record<string, number> = {};
+    members.forEach((m: any) => {
+      const cls = m.classe || m.year || "Non renseigné";
+      classCounts[cls] = (classCounts[cls] || 0) + 1;
+    });
+    const classBreakdown = Object.entries(classCounts)
+      .map(([label, count]) => ({ label, count }))
+      .sort((a, b) => b.count - a.count);
 
     // 3. Complete leaderboard of ALL members ranked by points
     const fullLeaderboard = [...members]
@@ -87,7 +115,6 @@ export async function GET() {
       .gte("created_at", thirtyDaysAgo.toISOString())
       .order("created_at", { ascending: true });
 
-    // Group by date
     const dailyPoints: Record<string, number> = {};
     (recentLogs || []).forEach((log: any) => {
       const day = new Date(log.created_at).toISOString().slice(0, 10);
@@ -114,19 +141,37 @@ export async function GET() {
       };
     }).sort((a: any, b: any) => b.totalPoints - a.totalPoints);
 
+    // 7. Activities & engagement summary
+    const { count: formationsCount } = await (client as any).from("formations").select("id", { count: "exact", head: true });
+    const { count: visitesCount } = await (client as any).from("visites").select("id", { count: "exact", head: true });
+    const { count: projectsCount } = await (client as any).from("projects").select("id", { count: "exact", head: true });
+    const { count: eventRegistrationsCount } = await (client as any).from("event_registrations").select("id", { count: "exact", head: true });
+
     return NextResponse.json({
       kpis: {
         totalMembers,
         activeMembers,
         avgPoints,
         profileCompletionRate,
+        cvMembersCount,
+        cvRate,
+        linkedinMembersCount,
+        linkedinRate,
         statutBreakdown,
+      },
+      activities: {
+        formations: formationsCount || 0,
+        visites: visitesCount || 0,
+        projects: projectsCount || 0,
+        eventRegistrations: eventRegistrationsCount || 0,
       },
       top10: fullLeaderboard.slice(0, 10),
       leaderboard: fullLeaderboard,
       pointsDistribution,
       pointsTimeline,
       poleStats,
+      prepaBreakdown,
+      classBreakdown,
     });
   } catch (err: any) {
     return NextResponse.json(

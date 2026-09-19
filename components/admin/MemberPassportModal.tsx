@@ -22,6 +22,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { motion } from "framer-motion";
+import { getCvPublicUrl } from "@/lib/storage";
 
 interface MemberPassportModalProps {
   userId: string | null;
@@ -229,7 +230,7 @@ export default function MemberPassportModal({
                   )}
                   {data.profile.cv_url && (
                     <a
-                      href={data.profile.cv_url}
+                      href={getCvPublicUrl(data.profile.cv_url)!}
                       target="_blank"
                       rel="noreferrer"
                       className="inline-flex items-center gap-1 text-emerald-400 hover:underline"
