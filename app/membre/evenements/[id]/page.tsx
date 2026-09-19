@@ -17,7 +17,6 @@ export default async function EventDetailPage({
     .from("activities")
     .select("*")
     .eq("id", id)
-    .eq("type", "event")
     .maybeSingle();
 
   if (!activity) notFound();

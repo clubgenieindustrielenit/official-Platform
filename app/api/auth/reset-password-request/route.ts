@@ -42,7 +42,21 @@ export async function POST(request: Request) {
       });
 
       if (!linkErr && linkData?.properties?.action_link) {
-        const actionLink = linkData.properties.action_link;
+        // Extract token_hash and type from the Supabase action link,
+        // then build our own link pointing directly to the production app.
+        // This bypasses the Supabase "Site URL" dashboard setting (which may be localhost).
+        let actionLink = linkData.properties.action_link;
+        try {
+          const supabaseUrl = new URL(actionLink);
+          const tokenHash = supabaseUrl.searchParams.get("token_hash") || linkData.properties.hashed_token;
+          const linkType = supabaseUrl.searchParams.get("type") || "recovery";
+          if (tokenHash) {
+            // Build link directly to our confirm route so it never touches localhost
+            actionLink = `${appUrl}/api/auth/confirm?token_hash=${tokenHash}&type=${linkType}&next=/reset-password`;
+          }
+        } catch {
+          // If URL parsing fails, fall back to original action_link
+        }
 
         // If Resend API Key is available, send branded email directly (bypasses Supabase SMTP rate limits completely)
         if (resendApiKey) {
