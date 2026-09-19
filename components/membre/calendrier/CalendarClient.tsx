@@ -11,6 +11,7 @@ import {
   Building,
   GraduationCap,
   CalendarDays,
+  Sparkles,
   ExternalLink,
 } from "lucide-react";
 
@@ -18,7 +19,7 @@ export type CalendarActivity = {
   id: string;
   title: string;
   description: string | null;
-  type: "event" | "visit" | "formation" | string;
+  type: "event" | "visit" | "formation" | "autre" | string;
   date_start: string;
   date_end?: string | null;
   location?: string | null;
@@ -49,6 +50,12 @@ const TYPE_CONFIG: Record<
     dotColor: "bg-sky-400",
     badgeClass: "bg-sky-500/15 text-sky-400 border-sky-500/30",
     icon: CalendarDays,
+  },
+  autre: {
+    label: "Autre Activité",
+    dotColor: "bg-purple-400",
+    badgeClass: "bg-purple-500/15 text-purple-400 border-purple-500/30",
+    icon: Sparkles,
   },
 };
 

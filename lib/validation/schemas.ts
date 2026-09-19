@@ -110,13 +110,14 @@ export const pointsSchema = z
 // ---------------------------------------------------------------------------
 export const calendarEventSchema = z
   .object({
+    id: z.string().uuid().optional(),
     title: z.string().min(1, "Le titre est requis.").max(200).trim(),
-    description: z.string().max(2000).optional(),
-    type: z.enum(["event", "visit", "formation"]).default("event"),
+    description: z.string().max(2000).nullable().optional(),
+    type: z.enum(["event", "visit", "formation", "autre", "other"]).default("event"),
     date_start: z.string().datetime({ message: "Date de début invalide." }),
-    date_end: z.string().datetime().optional().nullable(),
-    location: z.string().max(200).optional(),
-    pole_id: z.string().uuid().optional().nullable(),
+    date_end: z.string().datetime().nullable().optional(),
+    location: z.string().max(200).nullable().optional(),
+    pole_id: z.string().uuid().nullable().optional(),
   })
   .strict();
 

@@ -9,6 +9,7 @@ import {
   Building,
   GraduationCap,
   Users,
+  Sparkles,
   X,
   Loader2,
   Trash2,
@@ -24,7 +25,7 @@ type CalendarActivity = {
   id: string;
   title: string;
   description: string | null;
-  type: "event" | "visit" | "formation" | string;
+  type: "event" | "visit" | "formation" | "autre" | string;
   date_start: string;
   date_end?: string | null;
   location?: string | null;
@@ -52,6 +53,12 @@ const TYPE_CONFIG: Record<
     dotColor: "bg-sky-400",
     badgeClass: "bg-sky-500/15 text-sky-400 border-sky-500/30",
     icon: CalendarDays,
+  },
+  autre: {
+    label: "Autre",
+    dotColor: "bg-purple-400",
+    badgeClass: "bg-purple-500/15 text-purple-400 border-purple-500/30",
+    icon: Sparkles,
   },
 };
 
@@ -251,6 +258,7 @@ export default function CalendarManager() {
             { key: "visit", label: "Visites", color: "bg-amber-400" },
             { key: "formation", label: "Formations", color: "bg-emerald-400" },
             { key: "event", label: "Événements & AG", color: "bg-sky-400" },
+            { key: "autre", label: "Autre", color: "bg-purple-400" },
           ].map((f) => (
             <button
               key={f.key}
@@ -434,11 +442,11 @@ export default function CalendarManager() {
                 <label className="text-[11px] font-semibold text-[#888] uppercase">
                   Type d&apos;activité
                 </label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   <button
                     type="button"
                     onClick={() => setFormType("event")}
-                    className={`p-2.5 rounded-xl border text-xs font-bold flex flex-col items-center gap-1 transition-all ${
+                    className={`p-2.5 rounded-xl border text-xs font-bold flex flex-col items-center gap-1 transition-all cursor-pointer ${
                       formType === "event"
                         ? "bg-sky-500/20 border-sky-400 text-sky-300"
                         : "border-[#333535] text-[#888] hover:text-white hover:bg-white/5"
@@ -450,7 +458,7 @@ export default function CalendarManager() {
                   <button
                     type="button"
                     onClick={() => setFormType("formation")}
-                    className={`p-2.5 rounded-xl border text-xs font-bold flex flex-col items-center gap-1 transition-all ${
+                    className={`p-2.5 rounded-xl border text-xs font-bold flex flex-col items-center gap-1 transition-all cursor-pointer ${
                       formType === "formation"
                         ? "bg-emerald-500/20 border-emerald-400 text-emerald-300"
                         : "border-[#333535] text-[#888] hover:text-white hover:bg-white/5"
@@ -462,7 +470,7 @@ export default function CalendarManager() {
                   <button
                     type="button"
                     onClick={() => setFormType("visit")}
-                    className={`p-2.5 rounded-xl border text-xs font-bold flex flex-col items-center gap-1 transition-all ${
+                    className={`p-2.5 rounded-xl border text-xs font-bold flex flex-col items-center gap-1 transition-all cursor-pointer ${
                       formType === "visit"
                         ? "bg-amber-500/20 border-custom-amber text-[#fca311]"
                         : "border-[#333535] text-[#888] hover:text-white hover:bg-white/5"
@@ -470,6 +478,18 @@ export default function CalendarManager() {
                   >
                     <Building className="w-4 h-4" />
                     <span>Visite</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormType("autre")}
+                    className={`p-2.5 rounded-xl border text-xs font-bold flex flex-col items-center gap-1 transition-all cursor-pointer ${
+                      formType === "autre"
+                        ? "bg-purple-500/20 border-purple-400 text-purple-300"
+                        : "border-[#333535] text-[#888] hover:text-white hover:bg-white/5"
+                    }`}
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    <span>Autre</span>
                   </button>
                 </div>
               </div>

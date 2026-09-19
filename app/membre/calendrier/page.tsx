@@ -29,7 +29,7 @@ export default async function CalendrierPage() {
     const rawType = (a.type || "").toLowerCase();
     const rawCat = (a.category || "").toLowerCase();
 
-    let type: "visit" | "formation" | "event" = "event";
+    let type: "visit" | "formation" | "event" | "autre" = "event";
     if (rawType === "visit" || rawType === "visite" || rawCat.includes("visit") || a.entreprise) {
       type = "visit";
     } else if (
@@ -41,6 +41,8 @@ export default async function CalendrierPage() {
       metadata._is_formation_meta
     ) {
       type = "formation";
+    } else if (rawType === "autre" || rawType === "other" || rawCat === "autre") {
+      type = "autre";
     } else {
       type = "event";
     }
