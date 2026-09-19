@@ -245,7 +245,7 @@ export default function LeaderboardStats({
             <ShieldCheck className="w-4 h-4 text-custom-amber" />
           </div>
           <p className="text-2xl sm:text-3xl font-extrabold text-white mt-2 font-mono">
-            {data.profileCompletionRate || data.kpis.profileCompletionRate}%
+            {data.kpis.profileCompletionRate}%
           </p>
           <p className="text-[10px] text-[#888] mt-1 font-mono">profils renseignés</p>
         </div>
